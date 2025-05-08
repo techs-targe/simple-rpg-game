@@ -5,7 +5,7 @@ const PLAYER_SPEED = 5;
 const ENEMY_SPEED = 2;
 const MAX_ENEMIES = 5;
 const EXP_TO_LEVEL_UP = 100;
-const GAME_REPO_URL = "https://github.com/techs-targe/simple-rpg-game/";
+const GAME_REPO_URL = "https://techs-targe.github.io/simple-rpg-game/game.html";
 
 // Enemy types
 const ENEMY_TYPES = {
