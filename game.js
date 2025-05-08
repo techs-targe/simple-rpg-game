@@ -1325,9 +1325,6 @@ function levelUp() {
 function gameOver() {
     gameActive = false;
     
-    // Capture game screen for sharing before adding game over overlay
-    captureGameScreenForSharing();
-    
     // Show game over text in the center of the screen
     const gameOverText = document.createElement('div');
     gameOverText.className = 'game-over-text';
@@ -1397,14 +1394,6 @@ function gameOver() {
     screenshot.appendChild(scoreOverlay);
     screenshotContainer.appendChild(screenshot);
     
-    // Add help text
-    const screenshotHelp = document.createElement('div');
-    screenshotHelp.style.fontSize = '12px';
-    screenshotHelp.style.color = '#666';
-    screenshotHelp.style.marginTop = '5px';
-    screenshotHelp.textContent = 'Take a screenshot of this to share your score with the image!';
-    screenshotContainer.appendChild(screenshotHelp);
-    
     // Create buttons container
     const buttonsContainer = document.createElement('div');
     buttonsContainer.className = 'share-buttons';
@@ -1451,102 +1440,16 @@ function gameOver() {
     document.body.appendChild(shareDialog);
 }
 
-// Function to capture game screen for sharing
-function captureGameScreenForSharing() {
-    // This function could use html2canvas or similar library to capture the actual game screen
-    // For now, we'll use the existing screenshot image
-    
-    // In a full implementation, you would add something like:
-    /*
-    if (typeof html2canvas !== 'undefined') {
-        html2canvas(gameScreen).then(canvas => {
-            const dataUrl = canvas.toDataURL('image/png');
-            // Store this dataUrl to use in the share dialog
-            window.gameScreenshotUrl = dataUrl;
-        });
-    }
-    */
-}
-
 // Function to share score to X (Twitter)
 function shareToX() {
     // Create share text
     const shareText = `I reached Level ${player.level} and earned ${player.exp} EXP in Simple RPG Game!`;
     
-    // Check if Web Share API is available and supports sharing files
-    if (navigator.share && navigator.canShare) {
-        try {
-            // Try to use Screenshot API if available (not widely supported)
-            if (window.navigator.mediaDevices && window.navigator.mediaDevices.getDisplayMedia) {
-                navigator.mediaDevices.getDisplayMedia({video: true})
-                    .then(stream => {
-                        const track = stream.getVideoTracks()[0];
-                        const imageCapture = new ImageCapture(track);
-                        
-                        return imageCapture.grabFrame()
-                            .then(imageBitmap => {
-                                const canvas = document.createElement('canvas');
-                                canvas.width = imageBitmap.width;
-                                canvas.height = imageBitmap.height;
-                                const ctx = canvas.getContext('2d');
-                                ctx.drawImage(imageBitmap, 0, 0);
-                                
-                                return new Promise(resolve => {
-                                    canvas.toBlob(blob => {
-                                        resolve(blob);
-                                        track.stop();
-                                    }, 'image/png');
-                                });
-                            });
-                    })
-                    .then(blob => {
-                        const file = new File([blob], 'screenshot.png', {type: 'image/png'});
-                        
-                        const shareData = {
-                            title: 'Simple RPG Game Score',
-                            text: shareText,
-                            url: GAME_REPO_URL,
-                            files: [file]
-                        };
-                        
-                        if (navigator.canShare(shareData)) {
-                            navigator.share(shareData);
-                        } else {
-                            // Fallback to URL-based sharing
-                            fallbackShare();
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Screenshot error:', error);
-                        fallbackShare();
-                    });
-            } else {
-                // No screenshot API, use fallback
-                fallbackShare();
-            }
-        } catch (error) {
-            console.error('Sharing error:', error);
-            fallbackShare();
-        }
-    } else {
-        // Web Share API not available, use fallback
-        fallbackShare();
-    }
+    // Create share URL with text and game URL
+    const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(GAME_REPO_URL)}`;
     
-    // Fallback to traditional URL sharing
-    function fallbackShare() {
-        // Create image URL - use the image path for the landing page
-        const imageUrl = 'https://techs-targe.github.io/simple-rpg-game/images/gamescreen1.png';
-        
-        // Mention the image is available in the tweet text
-        const fullShareText = `${shareText}\nCheck out the screenshot on the game page!`;
-        
-        // Create share URL with text and game URL
-        const shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(fullShareText)}&url=${encodeURIComponent(GAME_REPO_URL)}`;
-        
-        // Open share dialog in a new window
-        window.open(shareUrl, '_blank', 'width=550,height=420');
-    }
+    // Open share dialog in a new window
+    window.open(shareUrl, '_blank', 'width=550,height=420');
 }
 
 // Attack function
