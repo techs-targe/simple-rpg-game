@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Simple RPG Game</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <style>
@@ -24,6 +24,11 @@
             padding: 20px;
             margin-top: 20px;
             border: 1px solid rgba(0, 100, 255, 0.2);
+        }
+        @media (max-width: 600px) {
+            #game-container {
+                padding: 10px;
+            }
         }
         #game-screen {
             border: 1px solid #aaa;
@@ -338,6 +343,33 @@
         #controls {
             display: flex;
             justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        @media (max-width: 600px) {
+            #controls {
+                flex-direction: column;
+            }
+            button {
+                padding: 15px 18px;
+                margin-bottom: 5px;
+                font-size: 16px;
+            }
+        }
+        
+        /* Mobile touch controls */
+        #mobile-controls {
+            display: none;
+            text-align: center;
+            margin-top: 10px;
+        }
+        @media (max-width: 600px) {
+            #mobile-controls {
+                display: block;
+            }
+            #keyboard-help p:first-child {
+                display: none;
+            }
         }
         button {
             padding: 10px 18px;
@@ -575,6 +607,16 @@
             justify-content: space-between;
             gap: 5px;
         }
+        @media (max-width: 600px) {
+            .bonus-options {
+                flex-direction: column;
+                gap: 10px;
+            }
+            .bonus-button {
+                padding: 10px 5px;
+                font-size: 14px;
+            }
+        }
         .bonus-button {
             flex: 1;
             padding: 5px;
@@ -633,6 +675,13 @@
         <div id="keyboard-help">
             <p>Use <strong>Arrow Keys</strong> to move. Press <strong>Space</strong> to attack. Press <strong>H</strong> to heal. Press <strong>G</strong> to use gems.</p>
             <p><small>Defeat enemies to gain experience and level up! Different enemies appear at higher levels.</small></p>
+        </div>
+        <div id="mobile-controls">
+            <p>Touch controls: <strong>Swipe</strong> to move. <strong>Tap</strong> to attack in that direction.</p>
+            <div style="margin-top: 10px;">
+                <button id="mobile-heal-btn" style="background-color: #3498db; margin-right: 10px;">Heal</button>
+                <button id="mobile-gem-btn" style="background-color: #9b59b6;">Use Gem</button>
+            </div>
         </div>
     </div>
 

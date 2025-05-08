@@ -1761,6 +1761,19 @@ function useGem() {
     }
 }
 
+// Detect if device is a mobile/touch device
+const isMobileDevice = () => {
+    return (typeof window.orientation !== "undefined") || (navigator.userAgent.indexOf('IEMobile') !== -1);
+};
+
+// Touch controls variables
+let touchStartX = 0;
+let touchStartY = 0;
+let touchMoveX = 0;
+let touchMoveY = 0;
+let isTouching = false;
+let touchThreshold = 30; // Minimum distance to consider as a swipe
+
 // Event listeners
 document.addEventListener('keydown', (e) => {
     keysPressed[e.key] = true;
@@ -1808,6 +1821,126 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('keyup', (e) => {
     keysPressed[e.key] = false;
 });
+
+// Touch controls for mobile devices
+if (isMobileDevice() || true) { // Always enable touch for testing
+    const gameScreenElement = document.getElementById('game-screen');
+    
+    // Prevent default touch behavior to avoid scrolling while playing
+    gameScreenElement.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+    }, { passive: false });
+    
+    gameScreenElement.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+    }, { passive: false });
+    
+    // Touch start handler
+    gameScreenElement.addEventListener('touchstart', (e) => {
+        const touch = e.touches[0];
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+        isTouching = true;
+    });
+    
+    // Touch move handler for swipe movement
+    gameScreenElement.addEventListener('touchmove', (e) => {
+        if (!isTouching) return;
+        
+        const touch = e.touches[0];
+        touchMoveX = touch.clientX;
+        touchMoveY = touch.clientY;
+        
+        // Calculate delta movement
+        const deltaX = touchMoveX - touchStartX;
+        const deltaY = touchMoveY - touchStartY;
+        
+        // Determine movement direction
+        if (Math.abs(deltaX) > touchThreshold || Math.abs(deltaY) > touchThreshold) {
+            // Reset all keys first
+            keysPressed['ArrowUp'] = false;
+            keysPressed['ArrowDown'] = false;
+            keysPressed['ArrowLeft'] = false;
+            keysPressed['ArrowRight'] = false;
+            
+            // Set direction keys based on swipe
+            if (Math.abs(deltaX) > Math.abs(deltaY)) {
+                // Horizontal movement dominant
+                if (deltaX > 0) {
+                    keysPressed['ArrowRight'] = true;
+                    player.direction = 'right';
+                } else {
+                    keysPressed['ArrowLeft'] = true;
+                    player.direction = 'left';
+                }
+            } else {
+                // Vertical movement dominant
+                if (deltaY > 0) {
+                    keysPressed['ArrowDown'] = true;
+                    player.direction = 'down';
+                } else {
+                    keysPressed['ArrowUp'] = true;
+                    player.direction = 'up';
+                }
+            }
+            
+            // Update start position for continuous movement
+            touchStartX = touchMoveX;
+            touchStartY = touchMoveY;
+        }
+    });
+    
+    // Touch end handler
+    gameScreenElement.addEventListener('touchend', (e) => {
+        // Stop all movement
+        keysPressed['ArrowUp'] = false;
+        keysPressed['ArrowDown'] = false;
+        keysPressed['ArrowLeft'] = false;
+        keysPressed['ArrowRight'] = false;
+        isTouching = false;
+        
+        // If it was a short tap (not a long swipe), perform attack
+        const deltaX = touchMoveX - touchStartX;
+        const deltaY = touchMoveY - touchStartY;
+        
+        if (Math.abs(deltaX) < touchThreshold && Math.abs(deltaY) < touchThreshold) {
+            attack();
+        }
+    });
+    
+    // Add touch handlers for buttons
+    document.getElementById('attack-btn').addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        attack();
+    });
+    
+    document.getElementById('heal-btn').addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        heal();
+    });
+    
+    document.getElementById('restart-btn').addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        initGame();
+    });
+    
+    // Mobile-specific buttons
+    const mobileHealBtn = document.getElementById('mobile-heal-btn');
+    if (mobileHealBtn) {
+        mobileHealBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            heal();
+        });
+    }
+    
+    const mobileGemBtn = document.getElementById('mobile-gem-btn');
+    if (mobileGemBtn) {
+        mobileGemBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            useGem();
+        });
+    }
+}
 
 // Game control buttons
 attackBtn.addEventListener('click', attack);
