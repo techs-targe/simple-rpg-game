@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple RPG Adventure - A Browser-Based RPG Game</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2ecc71;
+            --accent-color: #e74c3c;
+            --dark-color: #2c3e50;
+            --light-color: #ecf0f1;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            background-color: var(--light-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary-color), var(--dark-color));
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        header p {
+            font-size: 1.2rem;
+            margin: 0;
+            opacity: 0.9;
+        }
+
+        .hero {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4rem 0;
+            gap: 2rem;
+        }
+
+        .hero-content {
+            flex: 1;
+        }
+
+        .hero-image {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            transition: transform 0.3s ease;
+        }
+
+        .hero-image img {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 10px;
+        }
+
+        .hero-image:hover {
+            transform: translateY(-5px);
+        }
+
+        .play-btn {
+            display: inline-block;
+            background-color: var(--secondary-color);
+            color: white;
+            padding: 12px 30px;
+            margin-top: 20px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1.1rem;
+            box-shadow: 0 4px 8px rgba(46, 204, 113, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .play-btn:hover {
+            background-color: #27ae60;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(46, 204, 113, 0.4);
+        }
+
+        .features {
+            background-color: white;
+            padding: 4rem 0;
+            text-align: center;
+        }
+
+        .section-title {
+            text-align: center;
+            margin-bottom: 3rem;
+            color: var(--dark-color);
+        }
+
+        .section-title h2 {
+            font-size: 2rem;
+            display: inline-block;
+            padding-bottom: 10px;
+            position: relative;
+        }
+
+        .section-title h2:after {
+            content: '';
+            position: absolute;
+            width: 60px;
+            height: 3px;
+            background-color: var(--primary-color);
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-gap: 2rem;
+        }
+
+        .feature-card {
+            background-color: var(--light-color);
+            border-radius: 10px;
+            padding: 2rem;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+
+        .screenshots {
+            padding: 4rem 0;
+            background-color: #f5f8fa;
+        }
+
+        .screenshot-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .screenshot {
+            overflow: hidden;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .screenshot img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .screenshot:hover {
+            transform: scale(1.03);
+        }
+
+        .how-to-play {
+            padding: 4rem 0;
+            background-color: white;
+        }
+
+        .instructions {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: var(--light-color);
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .instructions h3 {
+            color: var(--primary-color);
+            margin-top: 0;
+        }
+
+        .instructions ol {
+            padding-left: 1.5rem;
+        }
+
+        .instructions li {
+            margin-bottom: 1rem;
+        }
+
+        .keyboard-controls {
+            margin-top: 2rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            grid-gap: 1rem;
+        }
+
+        .key-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .key {
+            display: inline-block;
+            background-color: #e0e0e0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 0.25rem 0.5rem;
+            margin-right: 0.5rem;
+            font-family: monospace;
+            font-weight: bold;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        footer {
+            background-color: var(--dark-color);
+            color: white;
+            text-align: center;
+            padding: 2rem 0;
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 2rem;
+        }
+
+        .footer-section {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .footer-section h3 {
+            color: var(--primary-color);
+        }
+
+        .social-links {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .social-links a {
+            display: inline-block;
+            color: white;
+            text-decoration: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #34495e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s ease;
+        }
+
+        .social-links a:hover {
+            background-color: var(--primary-color);
+        }
+
+        .copyright {
+            margin-top: 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 1rem;
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .hero {
+                flex-direction: column;
+            }
+
+            .hero-content, .hero-image {
+                flex: none;
+                width: 100%;
+            }
+
+            .keyboard-controls {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        /* Animation for play button pulse */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(46, 204, 113, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+        }
+
+        .play-btn-highlighted {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Simple RPG Adventure</h1>
+            <p>A browser-based action RPG game with exciting combat mechanics</p>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="container">
+            <div class="hero">
+                <div class="hero-content">
+                    <h2>Embark on an Epic Adventure</h2>
+                    <p>Dive into a world of action and adventure with this browser-based RPG game. Battle enemies, level up, gain new abilities, and test your skills!</p>
+                    <p>No downloads required - play directly in your browser on any device.</p>
+                    <a href="game.html" class="play-btn play-btn-highlighted">Play Now!</a>
+                </div>
+                <div class="hero-image">
+                    <img src="https://via.placeholder.com/600x400?text=Game+Screenshot" alt="Simple RPG Game Screenshot">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="features">
+        <div class="container">
+            <div class="section-title">
+                <h2>Game Features</h2>
+            </div>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">⚔️</div>
+                    <h3>Action Combat</h3>
+                    <p>Fast-paced, skill-based combat system with special attacks, knockback mechanics, and critical hits.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📈</div>
+                    <h3>Level & Progress</h3>
+                    <p>Level up your character, gain experience points, and unlock powerful bonus abilities.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">👾</div>
+                    <h3>Diverse Enemies</h3>
+                    <p>Face different enemy types with unique abilities, strengths, and weaknesses as you progress.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">💎</div>
+                    <h3>Gem System</h3>
+                    <p>Collect gems to unlock and enhance abilities like increased health, faster healing, and stronger attacks.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎮</div>
+                    <h3>Simple Controls</h3>
+                    <p>Easy to learn but hard to master controls using keyboard or touch for mobile devices.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🌐</div>
+                    <h3>Share & Compare</h3>
+                    <p>Share your high scores and achievements on social media to challenge your friends.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="screenshots">
+        <div class="container">
+            <div class="section-title">
+                <h2>Screenshots</h2>
+            </div>
+            <div class="screenshot-grid">
+                <div class="screenshot">
+                    <img src="https://via.placeholder.com/600x400?text=Combat" alt="Combat Screenshot">
+                </div>
+                <div class="screenshot">
+                    <img src="https://via.placeholder.com/600x400?text=Leveling+Up" alt="Leveling Up Screenshot">
+                </div>
+                <div class="screenshot">
+                    <img src="https://via.placeholder.com/600x400?text=Enemies" alt="Enemies Screenshot">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="how-to-play">
+        <div class="container">
+            <div class="section-title">
+                <h2>How To Play</h2>
+            </div>
+            <div class="instructions">
+                <h3>Game Objective</h3>
+                <p>Defeat enemies, gain experience, level up, and survive as long as possible to achieve the highest score!</p>
+                
+                <h3>Basic Controls</h3>
+                <div class="keyboard-controls">
+                    <div>
+                        <div class="key-item"><span class="key">↑</span> Move Up</div>
+                        <div class="key-item"><span class="key">↓</span> Move Down</div>
+                        <div class="key-item"><span class="key">←</span> Move Left</div>
+                        <div class="key-item"><span class="key">→</span> Move Right</div>
+                    </div>
+                    <div>
+                        <div class="key-item"><span class="key">Space</span> Attack</div>
+                        <div class="key-item"><span class="key">H</span> Heal</div>
+                        <div class="key-item"><span class="key">G</span> Use Gem</div>
+                        <div class="key-item"><span class="key">R</span> Restart Game</div>
+                    </div>
+                </div>
+                
+                <h3>Combat Tips</h3>
+                <ol>
+                    <li><strong>Dash Attacks:</strong> Attack while moving to perform a dash attack for increased damage and knockback.</li>
+                    <li><strong>Sword Tip Hits:</strong> Hit enemies with the tip of your sword for critical damage.</li>
+                    <li><strong>Combo System:</strong> Chain attacks for increased experience rewards.</li>
+                    <li><strong>Watch Your Health:</strong> Use heal ability when your health is low.</li>
+                    <li><strong>Gems:</strong> Use gems wisely to choose bonus upgrades after leveling up.</li>
+                </ol>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>Simple RPG Adventure</h3>
+                    <p>A browser-based action RPG game developed with pure JavaScript, HTML and CSS.</p>
+                </div>
+                <div class="footer-section">
+                    <h3>Connect</h3>
+                    <div class="social-links">
+                        <a href="#" title="GitHub"><span>GH</span></a>
+                        <a href="#" title="Twitter"><span>TW</span></a>
+                    </div>
+                </div>
+            </div>
+            <div class="copyright">
+                <p>&copy; 2025 Simple RPG Adventure. All Rights Reserved.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
