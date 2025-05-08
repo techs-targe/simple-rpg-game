@@ -1,6 +1,9 @@
 // Game state and constants
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 400;
+// For mobile devices, we'll adjust how the game perceives the screen size
+const isMobile = window.innerWidth <= 600;
+const EFFECTIVE_GAME_HEIGHT = isMobile ? 300 : 400;
 const PLAYER_SPEED = 5;
 const ENEMY_SPEED = 2;
 const MAX_ENEMIES = 5;
@@ -144,9 +147,12 @@ function initGame() {
     // Set game to active state
     gameActive = true;
     
+    // Use the appropriate game height based on device
+    const effectiveGameHeight = isMobile ? EFFECTIVE_GAME_HEIGHT : GAME_HEIGHT;
+    
     // Set player position before initialization
     player.x = GAME_WIDTH / 2 - 20;
-    player.y = GAME_HEIGHT / 2 - 20;
+    player.y = effectiveGameHeight / 2 - 20;
     
     // Initialize player position (with rounded rendering)
     updatePlayerPosition();
@@ -173,8 +179,9 @@ function initGame() {
     
     // Completely reset player to initial values
     // Reset position to center
+    const effectiveGameHeight = isMobile ? EFFECTIVE_GAME_HEIGHT : GAME_HEIGHT;
     player.x = GAME_WIDTH / 2 - 20;
-    player.y = GAME_HEIGHT / 2 - 20;
+    player.y = effectiveGameHeight / 2 - 20;
     player.width = 40;
     player.height = 40;
     
@@ -358,11 +365,14 @@ function movePlayer() {
     player.prevX = player.x;
     player.prevY = player.y;
     
+    // Use the appropriate game height based on device
+    const effectiveGameHeight = isMobile ? EFFECTIVE_GAME_HEIGHT : GAME_HEIGHT;
+    
     if (keysPressed['ArrowUp'] && player.y > 0) {
         player.y -= PLAYER_SPEED;
         player.lastMoveDirection = 'up';
     }
-    if (keysPressed['ArrowDown'] && player.y < GAME_HEIGHT - player.height) {
+    if (keysPressed['ArrowDown'] && player.y < effectiveGameHeight - player.height) {
         player.y += PLAYER_SPEED;
         player.lastMoveDirection = 'down';
     }
@@ -429,6 +439,9 @@ function spawnEnemy() {
     const baseAttack = 5 + (player.level * 2);
     const baseExp = 20 + (player.level * 5);
     
+    // Use the appropriate game height based on device
+    const effectiveGameHeight = isMobile ? EFFECTIVE_GAME_HEIGHT : GAME_HEIGHT;
+    
     // Find a position that doesn't overlap with existing enemies
     let x, y;
     let attempts = 0;
@@ -442,7 +455,7 @@ function spawnEnemy() {
         
         // Generate a random position
         x = Math.random() * (GAME_WIDTH - enemySize);
-        y = Math.random() * (GAME_HEIGHT - enemySize);
+        y = Math.random() * (effectiveGameHeight - enemySize);
         
         // Also avoid spawning too close to the player
         const playerDistance = Math.sqrt(
