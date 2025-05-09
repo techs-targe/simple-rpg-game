@@ -1,6 +1,9 @@
 // Game state and constants
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 400;
+const ROCK_COUNT = 3; // Initial number of rocks
+const ROCK_SIZE = 50; // Size of rocks
+const ROCK_MAX_HP = 100; // Rock durability
 
 // Function to check if device is mobile
 function isMobileDevice() {
@@ -127,6 +130,9 @@ const player = {
 // Enemies array
 let enemies = [];
 
+// Rocks array (obstacles)
+let rocks = [];
+
 // Game state
 let gameActive = true;
 let keysPressed = {};
@@ -168,9 +174,9 @@ function initGame() {
     // Set game to active state
     gameActive = true;
     
-    // Set player position before initialization 
-    player.x = GAME_WIDTH / 2 - 20;
-    player.y = getEffectiveGameHeight() / 2 - 20;
+    // Set player position at center of the screen
+    player.x = GAME_WIDTH / 2 - player.width / 2;
+    player.y = getEffectiveGameHeight() / 2 - player.height / 2;
     
     // Initialize player position (with rounded rendering)
     updatePlayerPosition();
@@ -182,6 +188,20 @@ function initGame() {
         }
     });
     enemies = [];
+    
+    // Clear rocks
+    rocks.forEach(rock => {
+        if (rock.element) {
+            rock.element.remove();
+        }
+    });
+    rocks = [];
+    
+    // Place new rocks - adding one rock every 5 levels instead of 10
+    const rockCount = ROCK_COUNT + Math.floor(player.level / 5);
+    for (let i = 0; i < rockCount; i++) {
+        createRock();
+    }
     
     // Remove game over elements if they exist
     const gameOverText = gameScreen.querySelector('.game-over-text');
@@ -197,8 +217,8 @@ function initGame() {
     
     // Completely reset player to initial values
     // Reset position to center
-    player.x = GAME_WIDTH / 2 - 20;
-    player.y = getEffectiveGameHeight() / 2 - 20;
+    player.x = GAME_WIDTH / 2 - player.width / 2;
+    player.y = getEffectiveGameHeight() / 2 - player.height / 2;
     player.width = 40;
     player.height = 40;
     
@@ -382,23 +402,60 @@ function movePlayer() {
     player.prevX = player.x;
     player.prevY = player.y;
     
-    // Get effective game height for boundary checking
+    // Calculate potential new position
+    let newX = player.x;
+    let newY = player.y;
     
     if (keysPressed['ArrowUp'] && player.y > 0) {
-        player.y -= PLAYER_SPEED;
+        newY -= PLAYER_SPEED;
         player.lastMoveDirection = 'up';
     }
     if (keysPressed['ArrowDown'] && player.y < getEffectiveGameHeight() - player.height) {
-        player.y += PLAYER_SPEED;
+        newY += PLAYER_SPEED;
         player.lastMoveDirection = 'down';
     }
     if (keysPressed['ArrowLeft'] && player.x > 0) {
-        player.x -= PLAYER_SPEED;
+        newX -= PLAYER_SPEED;
         player.lastMoveDirection = 'left';
     }
     if (keysPressed['ArrowRight'] && player.x < GAME_WIDTH - player.width) {
-        player.x += PLAYER_SPEED;
+        newX += PLAYER_SPEED;
         player.lastMoveDirection = 'right';
+    }
+    
+    // Check for rock collisions
+    let canMoveX = true;
+    let canMoveY = true;
+    
+    // Check rock collisions for X and Y movement separately
+    for (const rock of rocks) {
+        // Check X movement collision
+        if (
+            newX < rock.x + rock.width &&
+            newX + player.width > rock.x &&
+            player.y < rock.y + rock.height &&
+            player.y + player.height > rock.y
+        ) {
+            canMoveX = false;
+        }
+        
+        // Check Y movement collision
+        if (
+            player.x < rock.x + rock.width &&
+            player.x + player.width > rock.x &&
+            newY < rock.y + rock.height &&
+            newY + player.height > rock.y
+        ) {
+            canMoveY = false;
+        }
+    }
+    
+    // Apply movement if possible
+    if (canMoveX) {
+        player.x = newX;
+    }
+    if (canMoveY) {
+        player.y = newY;
     }
     
     // Set the current direction to the last moved direction and check if moving
@@ -414,6 +471,100 @@ function movePlayer() {
     }
     
     updatePlayerPosition();
+}
+
+// Create a rock obstacle
+function createRock() {
+    // Find a position that doesn't overlap with existing rocks, enemies, or player
+    let x, y;
+    let attempts = 0;
+    const maxAttempts = 30; // Maximum attempts to find a non-overlapping position
+    let validPosition = false;
+    
+    // Keep trying positions until we find a valid one or run out of attempts
+    while (!validPosition && attempts < maxAttempts) {
+        attempts++;
+        
+        // Generate a random position
+        x = Math.random() * (GAME_WIDTH - ROCK_SIZE);
+        y = Math.random() * (getEffectiveGameHeight() - ROCK_SIZE);
+        
+        // Avoid spawning too close to the player (minimum 150px away from center)
+        const playerCenterX = player.x + player.width / 2;
+        const playerCenterY = player.y + player.height / 2;
+        const rockCenterX = x + ROCK_SIZE / 2;
+        const rockCenterY = y + ROCK_SIZE / 2;
+        
+        const playerDistance = Math.sqrt(
+            Math.pow(rockCenterX - playerCenterX, 2) + 
+            Math.pow(rockCenterY - playerCenterY, 2)
+        );
+        
+        if (playerDistance < 150) {
+            continue;
+        }
+        
+        // Check if this position overlaps with any existing rock
+        validPosition = true;
+        for (const existingRock of rocks) {
+            if (
+                x < existingRock.x + existingRock.width &&
+                x + ROCK_SIZE > existingRock.x &&
+                y < existingRock.y + existingRock.height &&
+                y + ROCK_SIZE > existingRock.y
+            ) {
+                validPosition = false;
+                break;
+            }
+        }
+        
+        // Also check if this position overlaps with any existing enemy
+        if (validPosition) {
+            for (const enemy of enemies) {
+                if (
+                    x < enemy.x + enemy.width &&
+                    x + ROCK_SIZE > enemy.x &&
+                    y < enemy.y + enemy.height &&
+                    y + ROCK_SIZE > enemy.y
+                ) {
+                    validPosition = false;
+                    break;
+                }
+            }
+        }
+    }
+    
+    // If we couldn't find a valid position after max attempts, just use the last generated position
+    
+    // Create rock data
+    const rock = {
+        id: 'rock_' + rocks.length,
+        x: x,
+        y: y,
+        width: ROCK_SIZE,
+        height: ROCK_SIZE,
+        hp: ROCK_MAX_HP,
+        maxHp: ROCK_MAX_HP
+    };
+    
+    // Create rock element
+    const rockElement = document.createElement('div');
+    rockElement.className = 'rock';
+    rockElement.style.left = rock.x + 'px';
+    rockElement.style.top = rock.y + 'px';
+    rockElement.style.width = ROCK_SIZE + 'px';
+    rockElement.style.height = ROCK_SIZE + 'px';
+    
+    // Add health indicator for rock
+    const healthBar = document.createElement('div');
+    healthBar.className = 'rock-health';
+    healthBar.style.width = '100%';
+    rockElement.appendChild(healthBar);
+    
+    gameScreen.appendChild(rockElement);
+    
+    rock.element = rockElement;
+    rocks.push(rock);
 }
 
 // Create a new enemy
@@ -496,6 +647,21 @@ function spawnEnemy() {
                 break;
             }
         }
+        
+        // Also check if this position overlaps with any existing rock
+        if (validPosition) {
+            for (const rock of rocks) {
+                if (
+                    x < rock.x + rock.width &&
+                    x + enemySize > rock.x &&
+                    y < rock.y + rock.height &&
+                    y + enemySize > rock.y
+                ) {
+                    validPosition = false;
+                    break;
+                }
+            }
+        }
     }
     
     // If we couldn't find a valid position after max attempts, just use the last generated position
@@ -558,7 +724,42 @@ function moveEnemies() {
             
             // Keep within game bounds
             newX = Math.max(0, Math.min(GAME_WIDTH - enemy.width, newX));
-            newY = Math.max(0, Math.min(GAME_HEIGHT - enemy.height, newY));
+            newY = Math.max(0, Math.min(getEffectiveGameHeight() - enemy.height, newY));
+            
+            // Check for rock collisions
+            let canMoveX = true;
+            let canMoveY = true;
+            
+            // Check rock collisions for X and Y movement separately
+            for (const rock of rocks) {
+                // Check X movement collision
+                if (
+                    newX < rock.x + rock.width &&
+                    newX + enemy.width > rock.x &&
+                    enemy.y < rock.y + rock.height &&
+                    enemy.y + enemy.height > rock.y
+                ) {
+                    canMoveX = false;
+                }
+                
+                // Check Y movement collision
+                if (
+                    enemy.x < rock.x + rock.width &&
+                    enemy.x + enemy.width > rock.x &&
+                    newY < rock.y + rock.height &&
+                    newY + enemy.height > rock.y
+                ) {
+                    canMoveY = false;
+                }
+            }
+            
+            // Apply movement if possible
+            if (!canMoveX) {
+                newX = enemy.x;
+            }
+            if (!canMoveY) {
+                newY = enemy.y;
+            }
             
             newPositions.push({ enemy, newX, newY });
         } else {
@@ -620,7 +821,22 @@ function moveEnemies() {
             
             // Keep within game bounds
             pos1.newX = Math.max(0, Math.min(GAME_WIDTH - pos1.enemy.width, pos1.newX));
-            pos1.newY = Math.max(0, Math.min(GAME_HEIGHT - pos1.enemy.height, pos1.newY));
+            pos1.newY = Math.max(0, Math.min(getEffectiveGameHeight() - pos1.enemy.height, pos1.newY));
+            
+            // Check for rock collisions after collision avoidance
+            for (const rock of rocks) {
+                if (
+                    pos1.newX < rock.x + rock.width &&
+                    pos1.newX + pos1.enemy.width > rock.x &&
+                    pos1.newY < rock.y + rock.height &&
+                    pos1.newY + pos1.enemy.height > rock.y
+                ) {
+                    // If collision with rock after avoidance, keep original position
+                    pos1.newX = pos1.enemy.x;
+                    pos1.newY = pos1.enemy.y;
+                    break;
+                }
+            }
         }
     }
     
@@ -693,8 +909,53 @@ function getSwordHitbox() {
     };
 }
 
-// Check for collisions between player and enemies
+// Check for collisions between player, enemies, and rocks
 function checkCollisions() {
+    // Check for sword collision with rocks when attacking
+    if (player.isAttacking) {
+        const swordHitbox = getSwordHitbox();
+        
+        rocks.forEach((rock, rockIndex) => {
+            const swordRockCollision = 
+                swordHitbox.x < rock.x + rock.width &&
+                swordHitbox.x + swordHitbox.width > rock.x &&
+                swordHitbox.y < rock.y + rock.height &&
+                swordHitbox.y + swordHitbox.height > rock.y;
+                
+            if (swordRockCollision) {
+                // Calculate damage multipliers
+                let damageMultiplier = 1.0;
+                
+                // Check if player was moving during attack (dash attack) - now 3x damage
+                const wasMovingDuringAttack = 
+                    Math.abs(player.x - player.prevX) > 0.5 || 
+                    Math.abs(player.y - player.prevY) > 0.5;
+                    
+                if (wasMovingDuringAttack) {
+                    damageMultiplier *= 3.0; // Changed from 2.0 to 3.0
+                }
+                
+                // Check for sword tip hit - still 2x damage
+                const isSwordTipHit = 
+                    player.swordAngle > 30 && 
+                    player.swordAngle < 70;
+                    
+                if (isSwordTipHit) {
+                    damageMultiplier *= 2.0;
+                }
+                
+                // Note: if both conditions apply, it's 3.0 * 2.0 = 6.0x damage multiplier
+                
+                // Calculate rock damage (less than enemy damage)
+                const damage = Math.floor((player.attack / 2) * damageMultiplier);
+                
+                // Damage the rock with isPlayerAttack flag set to true
+                damageRock(rock, damage, true);
+            }
+        });
+    }
+
+    // Check for enemy collisions
     enemies.forEach((enemy, index) => {
         // Check for player body collision with enemy
         const playerBodyCollision = 
@@ -723,17 +984,17 @@ function checkCollisions() {
             let damageMultiplier = 1.0;
             let damageType = "";
             
-            // Check if player was moving during attack (dash attack)
+            // Check if player was moving during attack (dash attack) - now 3x damage
             const wasMovingDuringAttack = 
                 Math.abs(player.x - player.prevX) > 0.5 || 
                 Math.abs(player.y - player.prevY) > 0.5;
                 
             if (wasMovingDuringAttack) {
-                damageMultiplier *= player.dashAttackMultiplier;
+                damageMultiplier *= 3.0; // Changed from 2.0 to 3.0
                 damageType += "DASH ATTACK! ";
             }
             
-            // Check for sword tip hit (timing-based)
+            // Check for sword tip hit (timing-based) - still 2x damage
             // We check the angle to determine if it's at the end of the swing
             // This is during the 'swing forward' part of the animation
             const isSwordTipHit = 
@@ -741,7 +1002,7 @@ function checkCollisions() {
                 player.swordAngle < 70;
                 
             if (isSwordTipHit) {
-                damageMultiplier *= player.swordTipMultiplier;
+                damageMultiplier *= 2.0;
                 damageType += "SWORD TIP HIT! ";
             }
             
@@ -757,11 +1018,28 @@ function checkCollisions() {
             const enemyCenterY = enemy.y;
             showDamageText(enemyCenterX, enemyCenterY, damage, damageMultiplier > 1);
             
-            // Determine knockback strength based on movement
-            const knockbackMultiplier = wasMovingDuringAttack ? 2.0 : 1.0;
+            // Determine knockback strength based on attack conditions
+            let knockbackMultiplier = 1.0;
+            let fixedKnockback = 0; // Fixed knockback amount that ignores resistance
+            
+            // When hitting with sword tip, knockback is 2x + small fixed knockback
+            if (isSwordTipHit) {
+                knockbackMultiplier = 2.0;
+                fixedKnockback = 20; // Small fixed knockback
+            }
+            
+            // When moving and hitting with sword tip, knockback is 5x + medium fixed knockback
+            if (wasMovingDuringAttack && isSwordTipHit) {
+                knockbackMultiplier = 5.0;
+                fixedKnockback = 40; // Medium fixed knockback
+            } 
+            // When just moving (but not tip hit)
+            else if (wasMovingDuringAttack) {
+                knockbackMultiplier = 2.0;
+            }
             
             // Apply knockback based on attack direction, not current direction
-            applyKnockback(enemy, player.attackDirection, knockbackMultiplier);
+            applyKnockback(enemy, player.attackDirection, knockbackMultiplier, fixedKnockback);
             
             // Message with damage type if any multipliers were applied
             if (damageMultiplier > 1) {
@@ -853,15 +1131,42 @@ function checkCollisions() {
         const isInvincibleToThisEnemy = player.invincibleToEnemies[enemy.id];
         
         if (!isInvincibleToThisEnemy && !player.isKnockedBack && playerBodyCollision) {
-            // Calculate damage based on movement
+            // Calculate damage based on movement and position
             let damageMultiplier = 1.0;
             let damage = enemy.attack;
+            let damageType = "";
             
             // Check if player is moving (takes more damage)
             if (player.isMoving) {
                 damageMultiplier = player.movingDefenseMultiplier;
-                damage = Math.floor(enemy.attack * damageMultiplier);
+                damageType += "MOVING! ";
             }
+            
+            // Check if attack is from behind (backstab - 2x damage)
+            // This is determined by comparing the enemy's position relative to the player's facing direction
+            let isBackstab = false;
+            switch(player.direction) {
+                case 'right':
+                    isBackstab = enemy.x < player.x; // Enemy is to the left while player faces right
+                    break;
+                case 'left':
+                    isBackstab = enemy.x > player.x; // Enemy is to the right while player faces left
+                    break;
+                case 'up':
+                    isBackstab = enemy.y > player.y; // Enemy is below while player faces up
+                    break;
+                case 'down':
+                    isBackstab = enemy.y < player.y; // Enemy is above while player faces down
+                    break;
+            }
+            
+            if (isBackstab) {
+                damageMultiplier *= 2.0; // Double damage for backstab
+                damageType += "BACKSTAB! ";
+            }
+            
+            // Calculate final damage with all multipliers
+            damage = Math.floor(enemy.attack * damageMultiplier);
             
             // Apply damage
             player.hp -= damage;
@@ -871,14 +1176,30 @@ function checkCollisions() {
             const playerCenterY = player.y;
             showDamageText(playerCenterX, playerCenterY, `-${damage}`, damageMultiplier > 1);
             
+            // Show backstab or moving damage message if applicable
+            if (damageType) {
+                showDamageText(playerCenterX, playerCenterY - 30, damageType, true);
+            }
+            
             // Break combo when taking damage
             breakCombo();
             
             // Visual feedback
-            playerElement.style.backgroundColor = 'lightblue';
-            setTimeout(() => {
-                playerElement.style.backgroundColor = 'blue';
-            }, 200);
+            if (isBackstab) {
+                // Special visual effect for backstab (red flash)
+                playerElement.style.backgroundColor = 'crimson';
+                playerElement.classList.add('backstabbed');
+                setTimeout(() => {
+                    playerElement.style.backgroundColor = 'blue';
+                    playerElement.classList.remove('backstabbed');
+                }, 400);
+            } else {
+                // Regular hit effect (blue flash)
+                playerElement.style.backgroundColor = 'lightblue';
+                setTimeout(() => {
+                    playerElement.style.backgroundColor = 'blue';
+                }, 200);
+            }
             
             // Apply knockback to player based on enemy type and position
             // Calculate direction from enemy to player
@@ -982,15 +1303,56 @@ function applyPlayerKnockback(fromDirection, strength) {
     
     let stepsCompleted = 0;
     const knockbackInterval = setInterval(() => {
-        // Apply movement with boundary checking
+        // Calculate new position
         const newX = player.x + stepX;
         const newY = player.y + stepY;
         
         // Check boundaries
-        if (newX >= 0 && newX <= GAME_WIDTH - player.width) {
+        let canMoveX = newX >= 0 && newX <= GAME_WIDTH - player.width;
+        let canMoveY = newY >= 0 && newY <= getEffectiveGameHeight() - player.height;
+        
+        // Check for rock collisions
+        for (const rock of rocks) {
+            // Check X movement collision
+            if (
+                newX < rock.x + rock.width &&
+                newX + player.width > rock.x &&
+                player.y < rock.y + rock.height &&
+                player.y + player.height > rock.y
+            ) {
+                canMoveX = false;
+                // Rock stops knockback immediately
+                clearInterval(knockbackInterval);
+                player.isKnockedBack = false;
+                playerElement.classList.remove('knocked-back');
+                
+                // Damage the rock when player is knocked into it
+                damageRock(rock, 10);
+            }
+            
+            // Check Y movement collision
+            if (
+                player.x < rock.x + rock.width &&
+                player.x + player.width > rock.x &&
+                newY < rock.y + rock.height &&
+                newY + player.height > rock.y
+            ) {
+                canMoveY = false;
+                // Rock stops knockback immediately
+                clearInterval(knockbackInterval);
+                player.isKnockedBack = false;
+                playerElement.classList.remove('knocked-back');
+                
+                // Damage the rock when player is knocked into it
+                damageRock(rock, 10);
+            }
+        }
+        
+        // Apply movement if possible
+        if (canMoveX) {
             player.x = newX;
         }
-        if (newY >= 0 && newY <= GAME_HEIGHT - player.height) {
+        if (canMoveY) {
             player.y = newY;
         }
         
@@ -1010,8 +1372,78 @@ function applyPlayerKnockback(fromDirection, strength) {
     }, player.knockbackDuration);
 }
 
+// Damage a rock and update visuals
+function damageRock(rock, damage, isPlayerAttack = false) {
+    rock.hp -= damage;
+    
+    // Show damage text
+    const rockCenterX = rock.x + rock.width / 2;
+    const rockCenterY = rock.y;
+    showDamageText(rockCenterX, rockCenterY, damage, false);
+    
+    // Visual feedback
+    rock.element.classList.add('rock-hit');
+    setTimeout(() => {
+        rock.element.classList.remove('rock-hit');
+    }, 200);
+    
+    // Update health bar
+    const healthPercent = Math.max(0, rock.hp / rock.maxHp * 100);
+    const healthBar = rock.element.querySelector('.rock-health');
+    if (healthBar) {
+        healthBar.style.width = `${healthPercent}%`;
+        
+        // Change health bar color based on remaining health
+        if (healthPercent < 30) {
+            healthBar.style.backgroundColor = 'red';
+        } else if (healthPercent < 60) {
+            healthBar.style.backgroundColor = 'orange';
+        }
+    }
+    
+    // Check if rock is destroyed
+    if (rock.hp <= 0) {
+        // Add visual effect for destruction
+        const explosion = document.createElement('div');
+        explosion.className = 'rock-explosion';
+        explosion.style.left = rock.x + 'px';
+        explosion.style.top = rock.y + 'px';
+        gameScreen.appendChild(explosion);
+        
+        // Show destruction text
+        showDamageText(rockCenterX, rockCenterY - 20, "DESTROYED!", true);
+        
+        // If destroyed by player attack, add a gem
+        if (isPlayerAttack) {
+            // Add gem to player
+            addGem();
+            
+            // Show gem message
+            showDamageText(rockCenterX, rockCenterY - 40, "+1 GEM!", true);
+        }
+        
+        // Remove rock after explosion animation
+        setTimeout(() => {
+            if (explosion.parentNode) {
+                explosion.remove();
+            }
+        }, 1000);
+        
+        // Remove rock from game
+        if (rock.element.parentNode) {
+            rock.element.remove();
+        }
+        
+        // Remove from rocks array
+        const index = rocks.indexOf(rock);
+        if (index > -1) {
+            rocks.splice(index, 1);
+        }
+    }
+}
+
 // Apply knockback to enemy based on direction and multiplier
-function applyKnockback(enemy, direction, knockbackMultiplier = 1.0) {
+function applyKnockback(enemy, direction, knockbackMultiplier = 1.0, fixedKnockback = 0) {
     // Calculate effective resistance based on player's knockback strength
     // Higher player knockback strength reduces enemy resistance
     // New formula: effectiveResistance = originalResistance * (1 / sqrt(knockbackStrengthMultiplier))
@@ -1019,22 +1451,37 @@ function applyKnockback(enemy, direction, knockbackMultiplier = 1.0) {
     // Example: knockbackStrengthMultiplier of 4.0 reduces resistance to 50% instead of 25%
     const effectiveResistance = enemy.knockbackResistance / Math.sqrt(Math.max(1, player.knockbackStrengthMultiplier));
     
-    // Apply effective knockback resistance - if random number is less than effective resistance, skip knockback
-    if (Math.random() < effectiveResistance) {
-        // Show a visual indicator for resistance
-        enemy.element.classList.add('resisted-knockback');
-        
-        // Show resistance value as text if it's a strong enemy
-        if (enemy.knockbackResistance > 0.5) {
-            const enemyCenterX = enemy.x + enemy.width / 2;
-            const enemyCenterY = enemy.y;
-            showDamageText(enemyCenterX, enemyCenterY - 20, `RESIST: ${Math.round(effectiveResistance * 100)}%`, false);
+    // Variable to track if knockback was resisted
+    let knockbackResisted = false;
+    
+    // Only apply resistance check if there's no fixed knockback component
+    // Otherwise the fixed knockback will always apply, and only the multiplier part can be resisted
+    if (fixedKnockback === 0) {
+        // Apply effective knockback resistance - if random number is less than effective resistance, skip knockback
+        if (Math.random() < effectiveResistance) {
+            // Show a visual indicator for resistance
+            enemy.element.classList.add('resisted-knockback');
+            
+            // Show resistance value as text if it's a strong enemy
+            if (enemy.knockbackResistance > 0.5) {
+                const enemyCenterX = enemy.x + enemy.width / 2;
+                const enemyCenterY = enemy.y;
+                showDamageText(enemyCenterX, enemyCenterY - 20, `RESIST: ${Math.round(effectiveResistance * 100)}%`, false);
+            }
+            
+            setTimeout(() => {
+                enemy.element.classList.remove('resisted-knockback');
+            }, 300);
+            
+            // If there's no fixed knockback, we can just return
+            if (fixedKnockback === 0) {
+                return;
+            }
+            
+            // Otherwise mark as resisted but continue to apply fixed knockback
+            knockbackResisted = true;
+            knockbackMultiplier = 0; // Zero out the multiplier part since it was resisted
         }
-        
-        setTimeout(() => {
-            enemy.element.classList.remove('resisted-knockback');
-        }, 300);
-        return;
     }
     
     enemy.isKnockedBack = true;
@@ -1042,12 +1489,23 @@ function applyKnockback(enemy, direction, knockbackMultiplier = 1.0) {
     // Visual indicator for knockback
     enemy.element.classList.add('knocked-back');
     
-    // If this is a strong knockback (from dash attack), add a special class
-    if (knockbackMultiplier > 1.0) {
+    // If this is a strong knockback, add a special class
+    if (knockbackMultiplier > 1.0 || fixedKnockback > 0) {
         enemy.element.classList.add('strong-knockback');
         setTimeout(() => {
             enemy.element.classList.remove('strong-knockback');
         }, 500);
+    }
+    
+    // Show fixed knockback text if applicable
+    if (fixedKnockback > 0) {
+        const enemyCenterX = enemy.x + enemy.width / 2;
+        const enemyCenterY = enemy.y;
+        if (knockbackResisted) {
+            showDamageText(enemyCenterX, enemyCenterY - 40, "FIXED KNOCKBACK!", true);
+        } else {
+            showDamageText(enemyCenterX, enemyCenterY - 40, "SUPER KNOCKBACK!", true);
+        }
     }
     
     // Calculate knockback direction
@@ -1058,7 +1516,7 @@ function applyKnockback(enemy, direction, knockbackMultiplier = 1.0) {
     // Now also consider player's knockback strength multiplier, but with a more gradual curve
     // Using Math.sqrt for a more gradual increase in knockback power
     const knockbackPower = 1 + Math.sqrt(player.knockbackStrengthMultiplier - 1) * 0.5;
-    const baseKnockback = enemy.knockbackDistance * knockbackMultiplier * knockbackPower;
+    const baseKnockback = (enemy.knockbackDistance * knockbackMultiplier * knockbackPower) + fixedKnockback;
     
     switch(direction) {
         case 'right':
@@ -1104,10 +1562,51 @@ function applyKnockback(enemy, direction, knockbackMultiplier = 1.0) {
         const newY = enemy.y + stepY;
         
         // Check boundaries
-        if (newX >= 0 && newX <= GAME_WIDTH - enemy.width) {
+        let canMoveX = newX >= 0 && newX <= GAME_WIDTH - enemy.width;
+        let canMoveY = newY >= 0 && newY <= getEffectiveGameHeight() - enemy.height;
+        
+        // Check for rock collisions
+        for (const rock of rocks) {
+            // Check X movement collision
+            if (
+                newX < rock.x + rock.width &&
+                newX + enemy.width > rock.x &&
+                enemy.y < rock.y + rock.height &&
+                enemy.y + enemy.height > rock.y
+            ) {
+                canMoveX = false;
+                // Rock stops knockback immediately
+                enemy.isKnockedBack = false;
+                enemy.element.classList.remove('knocked-back');
+                
+                // Damage the rock when enemy is knocked into it
+                damageRock(rock, 5 + Math.floor(player.level / 2)); // Damage scales with player level
+                return; // Exit the step function
+            }
+            
+            // Check Y movement collision
+            if (
+                enemy.x < rock.x + rock.width &&
+                enemy.x + enemy.width > rock.x &&
+                newY < rock.y + rock.height &&
+                newY + enemy.height > rock.y
+            ) {
+                canMoveY = false;
+                // Rock stops knockback immediately
+                enemy.isKnockedBack = false;
+                enemy.element.classList.remove('knocked-back');
+                
+                // Damage the rock when enemy is knocked into it
+                damageRock(rock, 5 + Math.floor(player.level / 2)); // Damage scales with player level
+                return; // Exit the step function
+            }
+        }
+        
+        // Apply movement if possible
+        if (canMoveX) {
             enemy.x = newX;
         }
-        if (newY >= 0 && newY <= GAME_HEIGHT - enemy.height) {
+        if (canMoveY) {
             enemy.y = newY;
         }
         
@@ -1130,9 +1629,11 @@ function applyKnockback(enemy, direction, knockbackMultiplier = 1.0) {
     
     // End knockback after duration
     setTimeout(() => {
-        enemy.isKnockedBack = false;
-        enemy.element.classList.remove('knocked-back');
-        enemy.element.style.transform = 'none';
+        if (enemy.isKnockedBack) { // Only if still in knockback state
+            enemy.isKnockedBack = false;
+            enemy.element.classList.remove('knocked-back');
+            enemy.element.style.transform = 'none';
+        }
     }, enemy.knockbackDuration);
 }
 
@@ -2023,5 +2524,86 @@ playerLevelElement.parentElement.addEventListener('click', function() {
     }
 });
 
+// Add rock CSS styles dynamically
+function addRockStyles() {
+    const rockStyles = document.createElement('style');
+    rockStyles.textContent = `
+        /* Rock (obstacle) styles */
+        .rock {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background-color: #555;
+            border-radius: 8px;
+            box-shadow: inset 0 0 10px #222, 0 0 5px rgba(0, 0, 0, 0.5);
+            z-index: 50;
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
+        
+        .rock-health {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 4px;
+            width: 100%;
+            background-color: #27ae60;
+            transition: width 0.3s, background-color 0.3s;
+        }
+        
+        .rock-hit {
+            animation: rock-hit 0.2s;
+        }
+        
+        @keyframes rock-hit {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); background-color: #777; }
+            100% { transform: scale(1); }
+        }
+        
+        .rock-explosion {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            margin-left: -5px;
+            margin-top: -5px;
+            background-color: #555;
+            border-radius: 50%;
+            z-index: 100;
+            animation: rock-explode 1s forwards;
+            opacity: 1;
+            pointer-events: none;
+        }
+        
+        @keyframes rock-explode {
+            0% { transform: scale(1); opacity: 1; }
+            20% { transform: scale(1.2); background-color: #777; opacity: 0.9; }
+            50% { transform: scale(1.5); background-color: #999; opacity: 0.7; box-shadow: 0 0 20px rgba(0, 0, 0, 0.5); }
+            100% { transform: scale(2); background-color: #aaa; opacity: 0; }
+        }
+        
+        /* Backstab effect style */
+        .backstabbed {
+            animation: backstab-effect 0.4s ease-in-out;
+            box-shadow: 0 0 20px red !important;
+            z-index: 300;
+        }
+        
+        @keyframes backstab-effect {
+            0% { transform: scale(1); }
+            30% { transform: scale(1.3) rotate(-5deg); }
+            60% { transform: scale(1.2) rotate(5deg); }
+            100% { transform: scale(1); }
+        }
+    `;
+    
+    document.head.appendChild(rockStyles);
+}
+
 // Start the game when loaded - using direct initialization
-window.addEventListener('load', initGame);
+window.addEventListener('load', function() {
+    // Add rock styles first
+    addRockStyles();
+    // Then initialize the game
+    initGame();
+});

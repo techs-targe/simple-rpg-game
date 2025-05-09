@@ -235,6 +235,40 @@
             z-index: 200;
             animation: critical-pulse 0.3s ease-in-out;
         }
+        
+        /* Rock (obstacle) styles */
+        .rock {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background-color: #555;
+            border-radius: 8px;
+            box-shadow: inset 0 0 10px #222, 0 0 5px rgba(0, 0, 0, 0.5);
+            z-index: 50;
+            overflow: hidden;
+        }
+        
+        .rock::before {
+            content: '';
+            position: absolute;
+            top: 5px;
+            left: 8px;
+            width: 15px;
+            height: 10px;
+            background-color: #777;
+            border-radius: 50%;
+            box-shadow: 15px 15px 0 #777, 20px -5px 0 #666;
+        }
+        
+        .rock-health {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background-color: #e74c3c;
+            transform-origin: left;
+        }
         @keyframes pulse {
             0% { transform: scale(1); }
             50% { transform: scale(1.1); }
@@ -707,10 +741,10 @@
         <div id="level-bonus" class="disabled">
             <div class="bonus-title">SELECT BONUS</div>
             <div class="bonus-options">
-                <button id="bonus-hp" class="bonus-button">HP+20</button>
-                <button id="bonus-heal" class="bonus-button">HEAL+</button>
-                <button id="bonus-attack" class="bonus-button">ATK+5</button>
-                <button id="bonus-knockback" class="bonus-button">KNOCK+</button>
+                <button id="bonus-hp" class="bonus-button">HP+20 [1]</button>
+                <button id="bonus-heal" class="bonus-button">HEAL+ [2]</button>
+                <button id="bonus-attack" class="bonus-button">ATK+5 [3]</button>
+                <button id="bonus-knockback" class="bonus-button">KNOCK+ [4]</button>
             </div>
         </div>
         <div id="game-screen">
@@ -729,7 +763,9 @@
         </div>
         <div id="keyboard-help">
             <p>Use <strong>Arrow Keys</strong> to move. Press <strong>Space</strong> to attack. Press <strong>H</strong> to heal. Press <strong>G</strong> to use gems.</p>
-            <p><small>Defeat enemies to gain experience and level up! Different enemies appear at higher levels.</small></p>
+            <p><small>When selecting bonuses, press <strong>1-4</strong> keys to quickly choose. Defeat rocks with attacks to get extra gems!</small></p>
+            <p><small>Be careful! You take <strong>double damage</strong> from backstab attacks when hit from behind. Watch your positioning!</small></p>
+            <p><small>Defeat enemies to gain experience and level up! Different enemies appear at higher levels and more rocks appear every 5 levels.</small></p>
         </div>
         <div id="mobile-controls">
             <p>Touch controls: <strong>Swipe</strong> to move. <strong>Tap</strong> to attack in that direction.</p>
