@@ -2,7 +2,7 @@
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 400;
 
-// Function to check if device is mobile (use as function instead of constant)
+// Function to check if device is mobile
 function isMobileDevice() {
     return window.innerWidth <= 600;
 }
@@ -11,6 +11,20 @@ function isMobileDevice() {
 function getEffectiveGameHeight() {
     return isMobileDevice() ? 300 : 400;
 }
+
+// Add window resize listener for mobile adaptability
+window.addEventListener('resize', function() {
+    if (typeof gameActive !== 'undefined' && gameActive && typeof player !== 'undefined') {
+        // Limit player position on resize
+        const maxHeight = getEffectiveGameHeight() - player.height;
+        if (player.y > maxHeight) {
+            player.y = maxHeight;
+            if (typeof updatePlayerPosition === 'function') {
+                updatePlayerPosition();
+            }
+        }
+    }
+});
 const PLAYER_SPEED = 5;
 const ENEMY_SPEED = 2;
 const MAX_ENEMIES = 5;
@@ -1781,9 +1795,6 @@ function useGem() {
     }
 }
 
-// This is a duplicate function, we're now using the one at the top of the file
-// which checks for screen width, which is more important for our UI sizing needs
-
 // Touch controls variables
 let touchStartX = 0;
 let touchStartY = 0;
@@ -1841,19 +1852,8 @@ document.addEventListener('keyup', (e) => {
 });
 
 // Touch controls for mobile devices - enable for all devices for testing
-// Window resize listener to update effective game height
-window.addEventListener('resize', function() {
-    if (gameActive) {
-        // Limit player position on resize
-        const maxHeight = getEffectiveGameHeight() - player.height;
-        if (player.y > maxHeight) {
-            player.y = maxHeight;
-            updatePlayerPosition();
-        }
-    }
-});
-
-// Initialize touch controls
+// Set up touch controls after the DOM is fully loaded
+document.addEventListener('DOMContentLoaded', function() {
     const gameScreenElement = document.getElementById('game-screen');
     
     // Prevent default touch behavior to avoid scrolling while playing
@@ -1970,7 +1970,7 @@ window.addEventListener('resize', function() {
             useGem();
         });
     }
-}
+});
 
 // Game control buttons
 attackBtn.addEventListener('click', attack);
