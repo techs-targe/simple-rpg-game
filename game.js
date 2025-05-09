@@ -2479,25 +2479,48 @@ bonusHealBtn.addEventListener('click', () => applyBonus('heal'));
 bonusAttackBtn.addEventListener('click', () => applyBonus('attack'));
 bonusKnockbackBtn.addEventListener('click', () => applyBonus('knockback'));
 
+// Track whether cheat mode has been used
+let cheatModeUsed = false;
+
 // Cheat mode function
 function activateCheatMode() {
+    // Only allow cheat mode to be used once
+    if (cheatModeUsed) {
+        // Play a failure sound
+        const failAudio = new Audio('data:audio/wav;base64,UklGRngEAABXQVZFZm10IBAAAAABAAEAESsAABErAAABAAgAZGF0YVQEAAAAAPBkZGQfHx/BwcH///8AAAAAAACzs7P///+ampr///////8AAAD///////8AAACgoKD///8AAAAAAAD///8AAAD///////////////////8AAAD///8AAABVVVX///9sbGwAAAAAAAD///8AAAD///////////////////9AQED///8AAADMzMy+vr5RUVH///////////9mZmb///////+zs7P///8AAAD///8AAAD///////////8bGxv///8AAADMzMx3d3cAAAAfHx////////9VVVX///////////////8AAAD///8AAAD///////////8AAAD///8AAAAAAAAAAAAAAACrq6v///////////8AAAD///////////////////+Dg4P///////////////////////////////9mZmb///////////8AAAAAAAD///9ERET///////////////////8AAAAAAAAAAAAAAAD///8AAAAAAAAAAAAAAADMzMxEREQAAAAAAACHh4f///+SkpIAAAAAAAAAAAAhISHd3d3/// / ///8AAAD///8AAAD///8AAAC/v78AAAAoKCgAAAAAAAAAAACzs7P///+Hh4cAAADe3t7///8AAAD///////////8AAAD///8AAAD///8AAAD///8AAABQUE D///////////////////8AAAD///8AAAD////v7+/w8PC9vb3h4eH///////////8AAAD///8AAABVVVX///////////////////8AAAD///8AAAD///////////////////////////////9VVVX///////////8AAAD///8AAAAAAABiYmL///+jo6MAAAD///8AAAD///////////////+Dg4P///////////////////////////9mZmb///////////8AAAD///8AAAD////v7+/w8PA4ODjh4eH///////////8AAAD///////////+NjY3///////////////////8AAADa2to4ODgAAADAwMD////////x8fH///+GhoYAAAAAAAAAAAD///////////////////////////////9VVVX///////////8AAAD///8AAAA=');
+        failAudio.volume = 0.3;
+        failAudio.play();
+        
+        // Show message that cheat can only be used once
+        const centerX = GAME_WIDTH / 2;
+        const centerY = GAME_HEIGHT / 2;
+        showDamageText(centerX, centerY, "CHEAT ALREADY USED!", false);
+        
+        // Reset the click counter
+        cheatClickCount = 0;
+        return;
+    }
+    
     // Play a success sound
     const audio = new Audio('data:audio/wav;base64,UklGRl9vAQBXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YTtvAQAAAAAAAAAAAAAAAAD///////////////////////////9sbGz///////////9MTEz///////////8UFBQICAgAAAAAAAAMDAwYGBgAAAAAAAAAAAAUFBT///////////////////+AgID///////+MjIyEhIT///////////9UVFT///////////9AQED///////////9QUFBISEj///////////9YWFj///////////84ODj///////////9QUFBAQEDw8PD///////+cnJyUlJT///////////9wcHD///////////8gICDw8PD///////8AAAD///////////8AAAD///////+kpKT///////+srKysrKz///////////+UlJT///////////9wcHD///////////9ISEj///////8=');
     audio.volume = 0.3;
     audio.play();
     
-    // Add 255 gems
-    for (let i = 0; i < 255; i++) {
+    // Add 10 gems instead of 255
+    for (let i = 0; i < 10; i++) {
         addGem();
     }
     
     // Show feedback
     const centerX = GAME_WIDTH / 2;
     const centerY = GAME_HEIGHT / 2;
-    showDamageText(centerX, centerY, "CHEAT ACTIVATED! +255 GEMS", true);
+    showDamageText(centerX, centerY, "CHEAT ACTIVATED! +10 GEMS", true);
     
-    // Reset the click counter to make it harder to activate again
-    cheatClickCount = -32;
+    // Mark cheat mode as used
+    cheatModeUsed = true;
+    
+    // Reset the click counter
+    cheatClickCount = 0;
     
     // Show the bonus selection UI
     showBonusSelection();
