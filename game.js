@@ -1,9 +1,16 @@
 // Game state and constants
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 400;
-// For mobile devices, we'll adjust how the game perceives the screen size
-const isMobile = window.innerWidth <= 600;
-const EFFECTIVE_GAME_HEIGHT = isMobile ? 300 : 400;
+
+// Function to check if device is mobile (use as function instead of constant)
+function isMobileDevice() {
+    return window.innerWidth <= 600;
+}
+
+// Function to get effective game height
+function getEffectiveGameHeight() {
+    return isMobileDevice() ? 300 : 400;
+}
 const PLAYER_SPEED = 5;
 const ENEMY_SPEED = 2;
 const MAX_ENEMIES = 5;
@@ -148,7 +155,7 @@ function initGame() {
     gameActive = true;
     
     // Use the appropriate game height based on device
-    const effectiveGameHeight = isMobile ? EFFECTIVE_GAME_HEIGHT : GAME_HEIGHT;
+    const effectiveGameHeight = getEffectiveGameHeight();
     
     // Set player position before initialization
     player.x = GAME_WIDTH / 2 - 20;
@@ -179,7 +186,7 @@ function initGame() {
     
     // Completely reset player to initial values
     // Reset position to center
-    const effectiveGameHeight = isMobile ? EFFECTIVE_GAME_HEIGHT : GAME_HEIGHT;
+    const effectiveGameHeight = getEffectiveGameHeight();
     player.x = GAME_WIDTH / 2 - 20;
     player.y = effectiveGameHeight / 2 - 20;
     player.width = 40;
@@ -366,7 +373,7 @@ function movePlayer() {
     player.prevY = player.y;
     
     // Use the appropriate game height based on device
-    const effectiveGameHeight = isMobile ? EFFECTIVE_GAME_HEIGHT : GAME_HEIGHT;
+    const effectiveGameHeight = getEffectiveGameHeight();
     
     if (keysPressed['ArrowUp'] && player.y > 0) {
         player.y -= PLAYER_SPEED;
@@ -440,7 +447,7 @@ function spawnEnemy() {
     const baseExp = 20 + (player.level * 5);
     
     // Use the appropriate game height based on device
-    const effectiveGameHeight = isMobile ? EFFECTIVE_GAME_HEIGHT : GAME_HEIGHT;
+    const effectiveGameHeight = getEffectiveGameHeight();
     
     // Find a position that doesn't overlap with existing enemies
     let x, y;
@@ -1774,10 +1781,8 @@ function useGem() {
     }
 }
 
-// Detect if device is a mobile/touch device
-const isMobileDevice = () => {
-    return (typeof window.orientation !== "undefined") || (navigator.userAgent.indexOf('IEMobile') !== -1);
-};
+// This is a duplicate function, we're now using the one at the top of the file
+// which checks for screen width, which is more important for our UI sizing needs
 
 // Touch controls variables
 let touchStartX = 0;
@@ -1835,8 +1840,20 @@ document.addEventListener('keyup', (e) => {
     keysPressed[e.key] = false;
 });
 
-// Touch controls for mobile devices
-if (isMobileDevice() || true) { // Always enable touch for testing
+// Touch controls for mobile devices - enable for all devices for testing
+// Window resize listener to update effective game height
+window.addEventListener('resize', function() {
+    if (gameActive) {
+        // Limit player position on resize
+        const maxHeight = getEffectiveGameHeight() - player.height;
+        if (player.y > maxHeight) {
+            player.y = maxHeight;
+            updatePlayerPosition();
+        }
+    }
+});
+
+// Initialize touch controls
     const gameScreenElement = document.getElementById('game-screen');
     
     // Prevent default touch behavior to avoid scrolling while playing
