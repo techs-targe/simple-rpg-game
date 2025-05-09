@@ -9,7 +9,7 @@ function isMobileDevice() {
 
 // Function to get effective game height
 function getEffectiveGameHeight() {
-    return isMobileDevice() ? 300 : 400;
+    return isMobileDevice() ? 260 : 400;
 }
 
 // Add window resize listener for mobile adaptability

@@ -50,9 +50,13 @@
         }
         @media (max-width: 600px) {
             #game-screen {
-                height: 300px; /* Smaller height for mobile */
+                height: 260px; /* Even smaller height for mobile to ensure it fits */
                 width: 100%;
                 max-width: 100%;
+            }
+            #game-container {
+                padding: 5px;
+                margin-top: 10px;
             }
         }
         #player {
@@ -395,6 +399,19 @@
                 height: 100%;
                 overscroll-behavior: none;
             }
+            
+            /* More compact status bar */
+            #status-bar {
+                margin-bottom: 5px;
+                padding: 5px;
+                font-size: 14px;
+            }
+            
+            /* Reduce vertical spacing between elements */
+            #gems-container {
+                margin: 2px 0;
+                height: 15px;
+            }
         }
         button {
             padding: 10px 18px;
@@ -604,6 +621,16 @@
             box-shadow: 0 0 10px cyan;
             transition: all 0.3s ease;
         }
+        @media (max-width: 600px) {
+            #level-bonus {
+                padding: 5px;
+                margin-bottom: 5px;
+            }
+            .bonus-title {
+                font-size: 12px;
+                margin-bottom: 3px;
+            }
+        }
         
         #level-bonus.disabled {
             background-color: rgba(0, 0, 0, 0.4);
@@ -634,12 +661,15 @@
         }
         @media (max-width: 600px) {
             .bonus-options {
-                flex-direction: column;
-                gap: 10px;
+                flex-direction: row;
+                flex-wrap: wrap;
+                gap: 5px;
             }
             .bonus-button {
-                padding: 10px 5px;
-                font-size: 14px;
+                padding: 8px 5px;
+                font-size: 12px;
+                flex: 1 0 40%;
+                max-width: calc(50% - 5px);
             }
         }
         .bonus-button {
@@ -677,10 +707,10 @@
         <div id="level-bonus" class="disabled">
             <div class="bonus-title">SELECT BONUS</div>
             <div class="bonus-options">
-                <button id="bonus-hp" class="bonus-button">1: HP+20 [Press 1]</button>
-                <button id="bonus-heal" class="bonus-button">2: HEAL-1s/+20% [Press 2]</button>
-                <button id="bonus-attack" class="bonus-button">3: ATK+5 [Press 3]</button>
-                <button id="bonus-knockback" class="bonus-button">4: KNOCK/RESIST+ [Press 4]</button>
+                <button id="bonus-hp" class="bonus-button">HP+20</button>
+                <button id="bonus-heal" class="bonus-button">HEAL+</button>
+                <button id="bonus-attack" class="bonus-button">ATK+5</button>
+                <button id="bonus-knockback" class="bonus-button">KNOCK+</button>
             </div>
         </div>
         <div id="game-screen">
