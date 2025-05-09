@@ -168,12 +168,9 @@ function initGame() {
     // Set game to active state
     gameActive = true;
     
-    // Use the appropriate game height based on device
-    const effectiveGameHeight = getEffectiveGameHeight();
-    
-    // Set player position before initialization
+    // Set player position before initialization 
     player.x = GAME_WIDTH / 2 - 20;
-    player.y = effectiveGameHeight / 2 - 20;
+    player.y = getEffectiveGameHeight() / 2 - 20;
     
     // Initialize player position (with rounded rendering)
     updatePlayerPosition();
@@ -200,9 +197,8 @@ function initGame() {
     
     // Completely reset player to initial values
     // Reset position to center
-    const effectiveGameHeight = getEffectiveGameHeight();
     player.x = GAME_WIDTH / 2 - 20;
-    player.y = effectiveGameHeight / 2 - 20;
+    player.y = getEffectiveGameHeight() / 2 - 20;
     player.width = 40;
     player.height = 40;
     
@@ -386,14 +382,13 @@ function movePlayer() {
     player.prevX = player.x;
     player.prevY = player.y;
     
-    // Use the appropriate game height based on device
-    const effectiveGameHeight = getEffectiveGameHeight();
+    // Get effective game height for boundary checking
     
     if (keysPressed['ArrowUp'] && player.y > 0) {
         player.y -= PLAYER_SPEED;
         player.lastMoveDirection = 'up';
     }
-    if (keysPressed['ArrowDown'] && player.y < effectiveGameHeight - player.height) {
+    if (keysPressed['ArrowDown'] && player.y < getEffectiveGameHeight() - player.height) {
         player.y += PLAYER_SPEED;
         player.lastMoveDirection = 'down';
     }
@@ -460,8 +455,7 @@ function spawnEnemy() {
     const baseAttack = 5 + (player.level * 2);
     const baseExp = 20 + (player.level * 5);
     
-    // Use the appropriate game height based on device
-    const effectiveGameHeight = getEffectiveGameHeight();
+    // Get effective game height for spawning
     
     // Find a position that doesn't overlap with existing enemies
     let x, y;
@@ -476,7 +470,7 @@ function spawnEnemy() {
         
         // Generate a random position
         x = Math.random() * (GAME_WIDTH - enemySize);
-        y = Math.random() * (effectiveGameHeight - enemySize);
+        y = Math.random() * (getEffectiveGameHeight() - enemySize);
         
         // Also avoid spawning too close to the player
         const playerDistance = Math.sqrt(
