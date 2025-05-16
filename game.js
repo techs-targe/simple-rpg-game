@@ -99,6 +99,7 @@ const MOVEMENT_PATTERNS = {
     RED_BLACK_SEEKER: { id: 'red_black_seeker', name: 'Black Seeker', description: 'Moves toward nearest black enemy' },
 
     // Black enemy patterns
+    BLACK_DIRECT: { id: 'black_direct', name: 'Direct', description: 'Moves directly toward player' },
     BLACK_SLOW: { id: 'black_slow', name: 'Slow Approach', description: 'Slowly approaches player' },
     BLACK_WHITE_SEEKER: { id: 'black_white_seeker', name: 'White Seeker', description: 'Moves toward nearest white enemy' },
     BLACK_BLUE_SEEKER: { id: 'black_blue_seeker', name: 'Blue Seeker', description: 'Moves toward nearest blue enemy' },
@@ -114,7 +115,7 @@ const MOVEMENT_PATTERNS = {
 const ENEMY_MOVEMENT_PATTERNS = {
     'blue': [MOVEMENT_PATTERNS.BLUE_DIRECT, MOVEMENT_PATTERNS.BLUE_STATIONARY, MOVEMENT_PATTERNS.BLUE_FLEE],
     'red': [MOVEMENT_PATTERNS.RED_DIRECT, MOVEMENT_PATTERNS.RED_ROCK_SEEKER, MOVEMENT_PATTERNS.RED_BLACK_SEEKER],
-    'black': [MOVEMENT_PATTERNS.BLACK_SLOW, MOVEMENT_PATTERNS.BLACK_WHITE_SEEKER, MOVEMENT_PATTERNS.BLACK_BLUE_SEEKER, MOVEMENT_PATTERNS.BLACK_STATIONARY],
+    'black': [MOVEMENT_PATTERNS.BLACK_DIRECT, MOVEMENT_PATTERNS.BLACK_SLOW, MOVEMENT_PATTERNS.BLACK_WHITE_SEEKER, MOVEMENT_PATTERNS.BLACK_BLUE_SEEKER, MOVEMENT_PATTERNS.BLACK_STATIONARY],
     'white': [MOVEMENT_PATTERNS.WHITE_STATIONARY, MOVEMENT_PATTERNS.WHITE_RANDOM, MOVEMENT_PATTERNS.WHITE_ORTHOGONAL]
 };
 
@@ -178,6 +179,7 @@ let arrows = [];
 
 // Game state
 let gameActive = true;
+let gamePaused = false; // Track if game is paused
 let keysPressed = {};
 let lastEnemySpawn = 0;
 let enemyIdCounter = 0; // Counter to generate unique enemy IDs
@@ -228,7 +230,7 @@ function updateArrowDisplay() {
 
 // Start drawing the bow
 function startDrawingBow() {
-    if (player.arrows <= 0) return;
+    if (gamePaused || player.arrows <= 0) return;
 
     // Set drawing state
     player.isDrawingBow = true;
@@ -321,7 +323,7 @@ function cancelBowDrawing() {
 
 // Update bow drawing in game loop
 function updateBowDrawing() {
-    if (!player.isDrawingBow) return;
+    if (!player.isDrawingBow || gamePaused) return;
 
     // No longer cancel bow drawing when moving
     // Instead position the bow based on player's current position
@@ -389,7 +391,7 @@ function updateBowDrawing() {
 
 // Shoot an arrow
 function shootArrow() {
-    if (!player.isDrawingBow || player.arrows <= 0) return;
+    if (gamePaused || !player.isDrawingBow || player.arrows <= 0) return;
 
     // Get the power level stats
     const powerLevel = player.bowDrawnLevel;
@@ -574,6 +576,9 @@ function moveArrows() {
                 const enemyCenterY = enemy.y;
                 showDamageText(enemyCenterX, enemyCenterY, arrow.damage, true);
 
+                // Handle enemy pattern changes when hit
+                handleEnemyPatternChange(enemy, originalHp);
+
                 // Check if enemy died
                 if (enemy.hp <= 0) {
                     // Give player experience
@@ -675,6 +680,16 @@ function initGame() {
     if (gameLoopId !== null) {
         cancelAnimationFrame(gameLoopId);
         gameLoopId = null;
+    }
+
+    // Make sure game is unpaused
+    gamePaused = false;
+    pauseStartTime = 0;
+
+    // Hide pause indicator if it exists
+    const pauseElement = document.getElementById('pause-indicator');
+    if (pauseElement) {
+        pauseElement.style.display = 'none';
     }
     
     // Set game to active state
@@ -1377,6 +1392,14 @@ function moveEnemies() {
                     break;
 
                 // Black enemy patterns
+                case MOVEMENT_PATTERNS.BLACK_DIRECT.id:
+                    // Move directly toward player
+                    if (enemy.x < player.x) moveVector.x = enemy.speed;
+                    if (enemy.x > player.x) moveVector.x = -enemy.speed;
+                    if (enemy.y < player.y) moveVector.y = enemy.speed;
+                    if (enemy.y > player.y) moveVector.y = -enemy.speed;
+                    break;
+
                 case MOVEMENT_PATTERNS.BLACK_SLOW.id:
                     // Slowly approach player (half speed)
                     if (enemy.x < player.x) moveVector.x = enemy.speed * 0.5;
@@ -1749,15 +1772,18 @@ function checkCollisions() {
             
             // Calculate final damage
             const damage = Math.floor(player.attack * damageMultiplier);
-            
+
             // Player is attacking and sword hit the enemy
             const originalHp = enemy.hp;
             enemy.hp -= damage;
-            
+
             // Show damage text above enemy
             const enemyCenterX = enemy.x + enemy.width / 2;
             const enemyCenterY = enemy.y;
             showDamageText(enemyCenterX, enemyCenterY, damage, damageMultiplier > 1);
+
+            // Handle enemy pattern changes when hit
+            handleEnemyPatternChange(enemy, originalHp);
             
             // Determine knockback strength based on attack conditions
             let knockbackMultiplier = 1.0;
@@ -2473,6 +2499,8 @@ function removeGem() {
 
 // Show level-up bonus selection (enable it)
 function showBonusSelection() {
+    if (gamePaused) return;
+
     if (player.gems > 0) {
         // Enable the bonus selection panel
         levelBonusContainer.classList.remove('disabled');
@@ -2578,23 +2606,23 @@ function applyBonus(bonusType) {
 // Level up player
 function levelUp() {
     player.level++;
-    
+
     // Increase maximum HP
     const oldMaxHp = player.maxHp;
     player.maxHp += 20;
-    
+
     // Heal HP (20% of maximum HP)
     const healAmount = Math.floor(player.maxHp * 0.2);
     player.hp = Math.min(player.maxHp, player.hp + healAmount);
-    
+
     // Display healing amount
     const playerCenterX = player.x + player.width / 2;
     const healTextY = player.y - 20;
     showDamageText(playerCenterX, healTextY, `+${healAmount} HP`, true);
-    
+
     // Increase attack power
     player.attack += 5;
-    
+
     // Add a gem for the level up
     addGem();
 
@@ -2602,6 +2630,12 @@ function levelUp() {
     player.arrows = Math.min(player.maxArrows, player.arrows + 2);
     showDamageText(playerCenterX, healTextY - 20, "+2 ARROWS", true);
     updateArrowDisplay();
+
+    // Add an extra rock every 5 levels
+    if (player.level % 5 === 0) {
+        createRock();
+        showDamageText(playerCenterX, healTextY - 40, "NEW ROCK APPEARED!", true);
+    }
     
     // Show level up text above player
     // Offset position slightly to prevent overlap
@@ -2747,7 +2781,7 @@ function shareToX() {
 
 // Attack function
 function attack() {
-    if (!gameActive || player.isAttacking) return;
+    if (!gameActive || gamePaused || player.isAttacking) return;
     
     player.isAttacking = true;
     playerElement.style.backgroundColor = 'darkblue';
@@ -2922,7 +2956,7 @@ function attack() {
 
 // Heal function
 function heal() {
-    if (!gameActive || player.healCooldown > 0) return;
+    if (!gameActive || gamePaused || player.healCooldown > 0) return;
     
     // Calculate total heal amount with multiplier
     const healAmount = player.maxHp * 0.3 * player.healAmountMultiplier;
@@ -3086,6 +3120,80 @@ function calculateMoveAwayVector(fromX, fromY, targetX, targetY, speed) {
 }
 
 // Calculate orthogonal movement (horizontal or vertical only)
+// Function to handle enemy pattern changes when hit
+function handleEnemyPatternChange(enemy, originalHp) {
+    const hpPercent = enemy.hp / originalHp * 100;
+    const lowHealth = enemy.hp <= originalHp / 2; // HP is 50% or less
+    const randomChance = Math.random() * 100; // 0-100 random value
+
+    // Get the enemy's color and current pattern
+    const enemyColor = enemy.type.color;
+    const currentPattern = enemy.movementPattern;
+
+    let newPattern = null;
+
+    // Apply pattern change rules based on enemy color
+    switch (enemyColor) {
+        case 'blue':
+            // Blue stationary enemies switch to direct when hit
+            if (currentPattern === MOVEMENT_PATTERNS.BLUE_STATIONARY.id) {
+                newPattern = MOVEMENT_PATTERNS.BLUE_DIRECT.id;
+                showDamageText(enemy.x + enemy.width/2, enemy.y - 20, "ANGRY!", false);
+            }
+            // Low health blue enemies have 10% chance to flee
+            else if (lowHealth && randomChance <= 10) {
+                newPattern = MOVEMENT_PATTERNS.BLUE_FLEE.id;
+                showDamageText(enemy.x + enemy.width/2, enemy.y - 20, "FLEEING!", false);
+            }
+            break;
+
+        case 'red':
+            // Red rock or black seekers switch to direct when hit
+            if (currentPattern === MOVEMENT_PATTERNS.RED_ROCK_SEEKER.id ||
+                currentPattern === MOVEMENT_PATTERNS.RED_BLACK_SEEKER.id) {
+                newPattern = MOVEMENT_PATTERNS.RED_DIRECT.id;
+                showDamageText(enemy.x + enemy.width/2, enemy.y - 20, "ANGRY!", false);
+            }
+            // Low health red enemies have 10% chance to seek rocks
+            else if (lowHealth && randomChance <= 10) {
+                newPattern = MOVEMENT_PATTERNS.RED_ROCK_SEEKER.id;
+                showDamageText(enemy.x + enemy.width/2, enemy.y - 20, "HIDING!", false);
+            }
+            break;
+
+        case 'black':
+            // All black enemies switch to direct when hit
+            newPattern = MOVEMENT_PATTERNS.BLACK_DIRECT.id;
+            showDamageText(enemy.x + enemy.width/2, enemy.y - 20, "CHARGING!", false);
+
+            // Low health black enemies have 10% chance to seek blue enemies
+            if (lowHealth && randomChance <= 10) {
+                newPattern = MOVEMENT_PATTERNS.BLACK_BLUE_SEEKER.id;
+                showDamageText(enemy.x + enemy.width/2, enemy.y - 20, "SEEKING HELP!", false);
+            }
+            break;
+
+        case 'white':
+            // White stationary enemies switch to orthogonal when hit
+            if (currentPattern === MOVEMENT_PATTERNS.WHITE_STATIONARY.id) {
+                newPattern = MOVEMENT_PATTERNS.WHITE_ORTHOGONAL.id;
+                showDamageText(enemy.x + enemy.width/2, enemy.y - 20, "MOVING!", false);
+            }
+            // White enemies have 10% chance to move randomly
+            else if (randomChance <= 10) {
+                newPattern = MOVEMENT_PATTERNS.WHITE_RANDOM.id;
+                showDamageText(enemy.x + enemy.width/2, enemy.y - 20, "ERRATIC!", false);
+            }
+            break;
+    }
+
+    // Apply the pattern change if needed
+    if (newPattern && newPattern !== currentPattern) {
+        enemy.movementPattern = newPattern;
+        enemy.element.dataset.movementPattern = newPattern;
+    }
+}
+
 function calculateOrthogonalMove(fromX, fromY, targetX, targetY, speed) {
     // Compare distances on x and y axes
     const dx = targetX - fromX;
@@ -3130,8 +3238,16 @@ function calculateRandomMove(enemy, speed) {
 
 // Game loop - simplified
 function gameLoop() {
+    // Request the next animation frame first (always do this regardless of game state)
+    gameLoopId = requestAnimationFrame(gameLoop);
+
     // Do not process if the game has ended
     if (!gameActive) {
+        return;
+    }
+
+    // Don't update game state if paused
+    if (gamePaused) {
         return;
     }
 
@@ -3143,13 +3259,14 @@ function gameLoop() {
     spawnEnemy();
     processHealEffects();
     updateBowDrawing();
-
-    // Request next frame
-    gameLoopId = requestAnimationFrame(gameLoop);
 }
 
 // Function to use a gem if available
 function useGem() {
+    if (gamePaused) {
+        return;
+    }
+
     if (player.gems > 0) {
         showBonusSelection();
     } else {
@@ -3177,6 +3294,64 @@ let touchMoveY = 0;
 let isTouching = false;
 let touchThreshold = 30; // Minimum distance to consider as a swipe
 
+// Variables to track bow drawing pause time
+let pauseStartTime = 0;
+
+// Function to toggle the game pause state
+function togglePause() {
+    if (!gameActive) return; // Don't pause if game is not active
+
+    const wasAlreadyPaused = gamePaused;
+    gamePaused = !gamePaused;
+
+    if (gamePaused) {
+        // Store pause start time to adjust bow drawing
+        pauseStartTime = Date.now();
+
+        // Create/show pause indicator
+        let pauseElement = document.getElementById('pause-indicator');
+        if (!pauseElement) {
+            pauseElement = document.createElement('div');
+            pauseElement.id = 'pause-indicator';
+            pauseElement.className = 'game-pause-text';
+            pauseElement.textContent = 'PAUSED';
+            pauseElement.style.position = 'absolute';
+            pauseElement.style.top = '40%';
+            pauseElement.style.left = '50%';
+            pauseElement.style.transform = 'translate(-50%, -50%)';
+            pauseElement.style.color = 'white';
+            pauseElement.style.fontSize = '36px';
+            pauseElement.style.fontWeight = 'bold';
+            pauseElement.style.textShadow = '2px 2px 4px black';
+            pauseElement.style.zIndex = '1000';
+            pauseElement.style.padding = '10px 20px';
+            pauseElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+            pauseElement.style.borderRadius = '10px';
+            pauseElement.style.border = '2px solid cyan';
+            gameScreen.appendChild(pauseElement);
+        } else {
+            pauseElement.style.display = 'block';
+        }
+    } else {
+        // If we were paused and are now unpausing
+        if (wasAlreadyPaused) {
+            // Calculate the time spent paused
+            const pauseDuration = Date.now() - pauseStartTime;
+
+            // Adjust bow draw start time if player is drawing bow
+            if (player.isDrawingBow) {
+                player.bowDrawStartTime += pauseDuration;
+            }
+        }
+
+        // Hide pause indicator
+        const pauseElement = document.getElementById('pause-indicator');
+        if (pauseElement) {
+            pauseElement.style.display = 'none';
+        }
+    }
+}
+
 // Event listeners
 document.addEventListener('keydown', (e) => {
     keysPressed[e.key] = true;
@@ -3196,6 +3371,11 @@ document.addEventListener('keydown', (e) => {
         useGem();
     }
 
+    // Pause/Unpause with P key
+    if (e.key === 'p' || e.key === 'P') {
+        togglePause();
+    }
+
     // Bow and arrow control with V key (single press)
     if (e.key === 'v' || e.key === 'V') {
         // If already drawing bow, shoot arrow
@@ -3213,12 +3393,12 @@ document.addEventListener('keydown', (e) => {
     }
 
     // Restart game when R key is pressed
-    if (e.key === 'r' || e.key === 'R') {
+    if ((e.key === 'r' || e.key === 'R') && !gamePaused) {
         e.preventDefault(); // Prevent the default action
-        
+
         // Reset all movement keys to prevent speed bug
         keysPressed = Object.create(null);
-        
+
         // Simply initialize directly
         initGame();
     }
@@ -3381,6 +3561,9 @@ restartBtn.addEventListener('click', initGame);
 
 // Handle bow button click
 function handleBowButton() {
+    // Don't allow bow actions when paused
+    if (gamePaused) return;
+
     // If already drawing bow, shoot arrow
     if (player.isDrawingBow) {
         shootArrow();
