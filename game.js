@@ -86,6 +86,38 @@ const ENEMY_TYPES = {
     }
 };
 
+// Enemy movement pattern definitions
+const MOVEMENT_PATTERNS = {
+    // Blue enemy patterns
+    BLUE_DIRECT: { id: 'blue_direct', name: 'Direct', description: 'Moves directly toward player' },
+    BLUE_STATIONARY: { id: 'blue_stationary', name: 'Stationary', description: 'Stays in place' },
+    BLUE_FLEE: { id: 'blue_flee', name: 'Flee', description: 'Moves away from player' },
+
+    // Red enemy patterns
+    RED_DIRECT: { id: 'red_direct', name: 'Direct', description: 'Moves directly toward player' },
+    RED_ROCK_SEEKER: { id: 'red_rock_seeker', name: 'Rock Seeker', description: 'Moves toward nearest rock' },
+    RED_BLACK_SEEKER: { id: 'red_black_seeker', name: 'Black Seeker', description: 'Moves toward nearest black enemy' },
+
+    // Black enemy patterns
+    BLACK_SLOW: { id: 'black_slow', name: 'Slow Approach', description: 'Slowly approaches player' },
+    BLACK_WHITE_SEEKER: { id: 'black_white_seeker', name: 'White Seeker', description: 'Moves toward nearest white enemy' },
+    BLACK_BLUE_SEEKER: { id: 'black_blue_seeker', name: 'Blue Seeker', description: 'Moves toward nearest blue enemy' },
+    BLACK_STATIONARY: { id: 'black_stationary', name: 'Stationary', description: 'Stays in place' },
+
+    // White enemy patterns
+    WHITE_STATIONARY: { id: 'white_stationary', name: 'Stationary', description: 'Stays in place' },
+    WHITE_RANDOM: { id: 'white_random', name: 'Random', description: 'Moves in random directions' },
+    WHITE_ORTHOGONAL: { id: 'white_orthogonal', name: 'Orthogonal', description: 'Approaches player using only horizontal or vertical movements' }
+};
+
+// Array of patterns for each enemy type
+const ENEMY_MOVEMENT_PATTERNS = {
+    'blue': [MOVEMENT_PATTERNS.BLUE_DIRECT, MOVEMENT_PATTERNS.BLUE_STATIONARY, MOVEMENT_PATTERNS.BLUE_FLEE],
+    'red': [MOVEMENT_PATTERNS.RED_DIRECT, MOVEMENT_PATTERNS.RED_ROCK_SEEKER, MOVEMENT_PATTERNS.RED_BLACK_SEEKER],
+    'black': [MOVEMENT_PATTERNS.BLACK_SLOW, MOVEMENT_PATTERNS.BLACK_WHITE_SEEKER, MOVEMENT_PATTERNS.BLACK_BLUE_SEEKER, MOVEMENT_PATTERNS.BLACK_STATIONARY],
+    'white': [MOVEMENT_PATTERNS.WHITE_STATIONARY, MOVEMENT_PATTERNS.WHITE_RANDOM, MOVEMENT_PATTERNS.WHITE_ORTHOGONAL]
+};
+
 // Player data
 const player = {
     x: GAME_WIDTH / 2 - 20,
@@ -105,8 +137,8 @@ const player = {
     invincibilityDuration: 1500, // 1.5 seconds of invincibility per enemy after taking damage
     invincibleToEnemies: {}, // Dictionary to track which enemies player is invincible to
     swordAngle: 0, // Current angle of the sword in degrees
-    swordLength: 30, // Length of the sword in pixels
-    swordHitbox: { width: 30, height: 5 }, // Sword dimensions
+    swordLength: 39, // Length of the sword in pixels (30 * 1.3 = 39)
+    swordHitbox: { width: 39, height: 7 }, // Sword dimensions (increased by 30%)
     direction: 'right', // Current facing direction: 'up', 'right', 'down', 'left'
     lastMoveDirection: 'right', // Track the last direction the player moved
     attackDirection: 'right', // Direction player was facing when attack started
@@ -124,7 +156,15 @@ const player = {
     swordTipMultiplier: 2.0, // Damage multiplier when hitting with sword tip
     movingDefenseMultiplier: 2.0, // Damage multiplier when taking damage while moving
     gems: 0, // Number of available gems for bonuses
-    choosingBonus: false // Whether player is currently choosing a level-up bonus
+    choosingBonus: false, // Whether player is currently choosing a level-up bonus
+
+    // Bow and arrow properties
+    arrows: 0, // Current number of arrows
+    maxArrows: 30, // Maximum number of arrows (increased to 30)
+    isDrawingBow: false, // Whether player is currently drawing the bow
+    bowDrawStartTime: 0, // When the player started drawing the bow
+    lastVKeyTime: 0, // For detecting double-tap
+    bowDrawnLevel: 0, // Current power level of the drawn bow (0-4)
 };
 
 // Enemies array
@@ -132,6 +172,9 @@ let enemies = [];
 
 // Rocks array (obstacles)
 let rocks = [];
+
+// Arrows array (projectiles)
+let arrows = [];
 
 // Game state
 let gameActive = true;
@@ -152,6 +195,7 @@ const playerLevelElement = document.getElementById('player-level');
 const playerExpElement = document.getElementById('player-exp');
 const attackBtn = document.getElementById('attack-btn');
 const healBtn = document.getElementById('heal-btn');
+const bowBtn = document.getElementById('bow-btn');
 const restartBtn = document.getElementById('restart-btn');
 const gemsContainer = document.getElementById('gems-container');
 const levelBonusContainer = document.getElementById('level-bonus');
@@ -159,9 +203,471 @@ const bonusHpBtn = document.getElementById('bonus-hp');
 const bonusHealBtn = document.getElementById('bonus-heal');
 const bonusAttackBtn = document.getElementById('bonus-attack');
 const bonusKnockbackBtn = document.getElementById('bonus-knockback');
+const bonusArrowsBtn = document.getElementById('bonus-arrows');
 
 // Simple game loop ID
 let gameLoopId = null;
+
+// Update the arrow count display
+function updateArrowDisplay() {
+    // Clear existing arrows
+    arrowsContainer.innerHTML = '';
+
+    // Create arrow indicators
+    for (let i = 0; i < player.arrows; i++) {
+        const arrowIndicator = document.createElement('div');
+        arrowIndicator.className = 'arrow-indicator';
+        arrowIndicator.style.width = '10px';
+        arrowIndicator.style.height = '20px';
+        arrowIndicator.style.margin = '2px';
+        arrowIndicator.style.backgroundColor = '#8B4513';
+        arrowIndicator.style.clipPath = 'polygon(50% 0%, 100% 33%, 75% 100%, 25% 100%, 0% 33%)';
+        arrowsContainer.appendChild(arrowIndicator);
+    }
+}
+
+// Start drawing the bow
+function startDrawingBow() {
+    if (player.arrows <= 0) return;
+
+    // Set drawing state
+    player.isDrawingBow = true;
+    player.bowDrawStartTime = Date.now();
+    player.bowDrawnLevel = 0;
+
+    // Show bow element positioned based on player direction
+    positionBow();
+    bowElement.style.display = 'block';
+
+    // Show charge indicator
+    bowChargeIndicator.style.display = 'block';
+    bowChargeIndicator.style.width = '0%';
+    bowChargeIndicator.style.backgroundColor = BOW_POWER_LEVELS[0].color;
+
+    // Show drawing message
+    showDamageText(player.x + player.width/2, player.y - 20, "DRAWING...", false);
+}
+
+// Position the bow based on player direction
+function positionBow() {
+    if (!player.isDrawingBow) return;
+
+    const playerCenterX = player.x + player.width / 2;
+    const playerCenterY = player.y + player.height / 2;
+
+    switch (player.direction) {
+        case 'right':
+            bowElement.style.left = `${player.x + player.width}px`;
+            bowElement.style.top = `${playerCenterY - 20}px`;
+            bowElement.style.transform = 'rotate(0deg)';
+            bowElement.style.borderRadius = '10px 0 0 10px';
+            bowElement.style.borderRight = 'none';
+            bowElement.style.borderLeft = '2px solid #8B4513';
+            break;
+        case 'left':
+            bowElement.style.left = `${player.x - 20}px`;
+            bowElement.style.top = `${playerCenterY - 20}px`;
+            bowElement.style.transform = 'rotate(180deg)';
+            bowElement.style.borderRadius = '10px 0 0 10px';
+            bowElement.style.borderRight = 'none';
+            bowElement.style.borderLeft = '2px solid #8B4513';
+            break;
+        case 'up':
+            bowElement.style.left = `${playerCenterX - 20}px`;
+            bowElement.style.top = `${player.y - 20}px`;
+            bowElement.style.transform = 'rotate(270deg)';
+            bowElement.style.borderRadius = '10px 0 0 10px';
+            bowElement.style.borderRight = 'none';
+            bowElement.style.borderLeft = '2px solid #8B4513';
+            break;
+        case 'down':
+            bowElement.style.left = `${playerCenterX - 20}px`;
+            bowElement.style.top = `${player.y + player.height}px`;
+            bowElement.style.transform = 'rotate(90deg)';
+            bowElement.style.borderRadius = '10px 0 0 10px';
+            bowElement.style.borderRight = 'none';
+            bowElement.style.borderLeft = '2px solid #8B4513';
+            break;
+    }
+}
+
+// Function to reset bow styles and state
+function resetBow() {
+    player.isDrawingBow = false;
+
+    // Reset bow element styles
+    bowElement.style.display = 'none';
+    bowElement.style.boxShadow = 'none';
+    bowElement.style.backgroundColor = 'transparent';
+
+    // Reset border styles to default for all directions
+    bowElement.style.borderLeft = '2px solid #8B4513';
+    bowElement.style.borderRight = 'none';
+    bowElement.style.borderTop = '2px solid #8B4513';
+    bowElement.style.borderBottom = '2px solid #8B4513';
+
+    // Hide charge indicator
+    bowChargeIndicator.style.display = 'none';
+    bowChargeIndicator.style.width = '0%';
+}
+
+// Cancel bow drawing
+function cancelBowDrawing() {
+    if (!player.isDrawingBow) return;
+
+    resetBow();
+    showDamageText(player.x + player.width/2, player.y - 20, "CANCELLED", false);
+}
+
+// Update bow drawing in game loop
+function updateBowDrawing() {
+    if (!player.isDrawingBow) return;
+
+    // No longer cancel bow drawing when moving
+    // Instead position the bow based on player's current position
+    if (player.isMoving) {
+        positionBow();
+    }
+
+    // Calculate draw time
+    const drawTime = Date.now() - player.bowDrawStartTime;
+
+    // Find current power level
+    let powerLevel = 0;
+    for (let i = BOW_POWER_LEVELS.length - 1; i >= 0; i--) {
+        if (drawTime >= BOW_POWER_LEVELS[i].threshold) {
+            powerLevel = i;
+            break;
+        }
+    }
+
+    // Update player's current bow power level
+    if (powerLevel !== player.bowDrawnLevel) {
+        player.bowDrawnLevel = powerLevel;
+
+        // Play sound or visual effect for level up
+        const powerLevelText = ['WEAK', 'MEDIUM', 'STRONG', 'POWERFUL', 'MAXIMUM'][powerLevel];
+        showDamageText(player.x + player.width/2, player.y - 20, powerLevelText, false);
+
+        // Show speed reduction percentage
+        const speedReductions = [0.7, 0.6, 0.5, 0.4, 0.3]; // Must match the values in movePlayer
+        const speedPercent = Math.round(speedReductions[powerLevel] * 100);
+        showDamageText(player.x + player.width/2, player.y - 40, `Speed: ${speedPercent}%`, false);
+    }
+
+    // Calculate charge percentage based on next threshold
+    let chargePercent = 100;
+    if (powerLevel < BOW_POWER_LEVELS.length - 1) {
+        const currentThreshold = BOW_POWER_LEVELS[powerLevel].threshold;
+        const nextThreshold = BOW_POWER_LEVELS[powerLevel + 1].threshold;
+        const timeToNextLevel = nextThreshold - currentThreshold;
+        const progress = drawTime - currentThreshold;
+        chargePercent = Math.min(100, (progress / timeToNextLevel) * 100);
+    }
+
+    // Update visual charging indicator
+    bowChargeIndicator.style.width = `${chargePercent}%`;
+    bowChargeIndicator.style.backgroundColor = BOW_POWER_LEVELS[powerLevel].color;
+
+    // Update bow appearance based on charge level
+    const chargeColors = ['#964B00', '#B87333', '#CD7F32', '#FFC125', '#FFD700'];
+    const borderWidth = 2 + powerLevel; // Thicker border for higher charge levels
+
+    // Make the bow element match the power level
+    bowElement.style.backgroundColor = `${chargeColors[powerLevel]}${Math.round(chargePercent/2) + 50}`; // Add transparency
+    bowElement.style.boxShadow = `0 0 ${powerLevel * 3}px ${chargeColors[powerLevel]}`;
+
+    // Update border width based on direction
+    if (player.direction === 'right' || player.direction === 'left') {
+        const borderSide = player.direction === 'right' ? 'borderLeft' : 'borderRight';
+        bowElement.style[borderSide] = `${borderWidth}px solid ${chargeColors[powerLevel]}`;
+    } else {
+        const borderSide = player.direction === 'up' ? 'borderBottom' : 'borderTop';
+        bowElement.style[borderSide] = `${borderWidth}px solid ${chargeColors[powerLevel]}`;
+    }
+}
+
+// Shoot an arrow
+function shootArrow() {
+    if (!player.isDrawingBow || player.arrows <= 0) return;
+
+    // Get the power level stats
+    const powerLevel = player.bowDrawnLevel;
+    const { damageMultiplier, speed, knockback, color } = BOW_POWER_LEVELS[powerLevel];
+
+    // Create an arrow object
+    const playerCenterX = player.x + player.width / 2;
+    const playerCenterY = player.y + player.height / 2;
+
+    // Calculate direction vector based on player direction
+    let dirX = 0;
+    let dirY = 0;
+    switch (player.direction) {
+        case 'right': dirX = 1; dirY = 0; break;
+        case 'left': dirX = -1; dirY = 0; break;
+        case 'up': dirX = 0; dirY = -1; break;
+        case 'down': dirX = 0; dirY = 1; break;
+    }
+
+    // Create the arrow object - position based on player direction and edge
+    const arrowWidth = 10;
+    const arrowHeight = 20;
+
+    // Calculate arrow starting position based on player direction
+    let arrowX, arrowY;
+
+    switch (player.direction) {
+        case 'right':
+            // Right edge of player
+            arrowX = player.x + player.width;
+            arrowY = player.y + (player.height / 2) - (arrowHeight / 2);
+            break;
+        case 'left':
+            // Left edge of player
+            arrowX = player.x - arrowWidth;
+            arrowY = player.y + (player.height / 2) - (arrowHeight / 2);
+            break;
+        case 'up':
+            // Top edge of player
+            arrowX = player.x + (player.width / 2) - (arrowWidth / 2);
+            arrowY = player.y - arrowHeight;
+            break;
+        case 'down':
+            // Bottom edge of player
+            arrowX = player.x + (player.width / 2) - (arrowWidth / 2);
+            arrowY = player.y + player.height;
+            break;
+    }
+
+    const arrow = {
+        x: arrowX,
+        y: arrowY,
+        width: arrowWidth,
+        height: arrowHeight,
+        dirX: dirX,
+        dirY: dirY,
+        speed: speed,
+        damage: Math.floor(player.attack * damageMultiplier),
+        knockback: knockback,
+        color: color,
+        distanceTraveled: 0,
+        maxDistance: GAME_WIDTH * 1.5, // Maximum travel distance
+        element: null,
+        // Add penetration for max charge level (level 4)
+        canPenetrate: powerLevel === 4
+    };
+
+    // Create visual element for the arrow
+    const arrowElement = document.createElement('div');
+    arrowElement.className = 'arrow';
+    arrowElement.style.position = 'absolute';
+    arrowElement.style.width = `${arrowWidth}px`;
+    arrowElement.style.height = `${arrowHeight}px`;
+    arrowElement.style.backgroundColor = color;
+    arrowElement.style.clipPath = 'polygon(50% 0%, 100% 33%, 75% 100%, 25% 100%, 0% 33%)';
+
+    // Rotate based on direction
+    let rotation = 0;
+    switch (player.direction) {
+        case 'right': rotation = 90; break;
+        case 'left': rotation = -90; break;
+        case 'up': rotation = 0; break;
+        case 'down': rotation = 180; break;
+    }
+
+    // Add glow to max power arrows
+    if (powerLevel === 4) {
+        arrowElement.style.boxShadow = `0 0 10px ${color}, 0 0 5px white`;
+    }
+
+    // Position and rotate the arrow directly for accuracy
+    arrowElement.style.left = `${arrow.x}px`;
+    arrowElement.style.top = `${arrow.y}px`;
+    arrowElement.style.transform = `rotate(${rotation}deg)`;
+    arrowElement.style.willChange = 'transform'; // Hint for browser optimization
+
+    // Add to screen
+    gameScreen.appendChild(arrowElement);
+    arrow.element = arrowElement;
+
+    // Add to arrows array
+    arrows.push(arrow);
+
+    // Show shooting effect with damage info
+    const powerTexts = ["QUICK", "AIMED", "FOCUSED", "CHARGED", "PERFECT"];
+    showDamageText(playerCenterX, playerCenterY - 30, `${powerTexts[powerLevel]} SHOT! (${arrow.damage})`, true);
+
+    // Decrease arrow count
+    player.arrows--;
+    updateArrowDisplay();
+
+    // Reset bow state
+    resetBow();
+}
+
+// Move all active arrows
+// Maximum number of arrows that can be active at once to avoid performance issues
+const MAX_ACTIVE_ARROWS = 20;
+
+function moveArrows() {
+    // Limit the number of active arrows for performance
+    if (arrows.length > MAX_ACTIVE_ARROWS) {
+        // Remove oldest arrows that exceed the limit
+        const arrowsToRemove = arrows.length - MAX_ACTIVE_ARROWS;
+        for (let i = 0; i < arrowsToRemove; i++) {
+            // Remove oldest arrow (first in array)
+            if (arrows[0] && arrows[0].element) {
+                arrows[0].element.remove();
+            }
+            arrows.shift();
+        }
+    }
+
+    for (let i = arrows.length - 1; i >= 0; i--) {
+        const arrow = arrows[i];
+
+        // Move arrow
+        arrow.x += arrow.dirX * arrow.speed;
+        arrow.y += arrow.dirY * arrow.speed;
+        arrow.distanceTraveled += arrow.speed;
+
+        // Update element position directly for accuracy
+        arrow.element.style.left = `${arrow.x}px`;
+        arrow.element.style.top = `${arrow.y}px`;
+
+        // Check if arrow is out of bounds or traveled too far
+        if (
+            arrow.x < -50 ||
+            arrow.x > GAME_WIDTH + 50 ||
+            arrow.y < -50 ||
+            arrow.y > getEffectiveGameHeight() + 50 ||
+            arrow.distanceTraveled > arrow.maxDistance
+        ) {
+            // Remove arrow element
+            arrow.element.remove();
+
+            // Remove from array
+            arrows.splice(i, 1);
+            continue;
+        }
+
+        // Check for collision with enemies
+        for (let j = 0; j < enemies.length; j++) {
+            const enemy = enemies[j];
+
+            // Skip if enemy is already being knocked back
+            if (enemy.isKnockedBack) continue;
+
+            // Check for collision
+            if (
+                arrow.x < enemy.x + enemy.width &&
+                arrow.x + arrow.width > enemy.x &&
+                arrow.y < enemy.y + enemy.height &&
+                arrow.y + arrow.height > enemy.y
+            ) {
+                // Apply damage to enemy
+                const originalHp = enemy.hp;
+                enemy.hp -= arrow.damage;
+
+                // Show damage text above enemy
+                const enemyCenterX = enemy.x + enemy.width / 2;
+                const enemyCenterY = enemy.y;
+                showDamageText(enemyCenterX, enemyCenterY, arrow.damage, true);
+
+                // Check if enemy died
+                if (enemy.hp <= 0) {
+                    // Give player experience
+                    player.exp += enemy.exp;
+
+                    // Show experience gain
+                    showDamageText(enemyCenterX, enemyCenterY - 20, `+${enemy.exp} EXP`, true);
+
+                    // Level up if needed
+                    if (player.exp >= EXP_TO_LEVEL_UP) {
+                        levelUp();
+                    }
+
+                    // Remove the enemy element from display
+                    enemy.element.remove();
+
+                    // Remove from enemies array
+                    const index = enemies.indexOf(enemy);
+                    if (index > -1) {
+                        enemies.splice(index, 1);
+                    }
+                } else {
+                    // Update enemy's health bar
+                    const healthBar = enemy.element.querySelector('.enemy-health');
+                    if (healthBar) {
+                        const healthPercent = Math.max(0, enemy.hp / originalHp * 100);
+                        healthBar.style.width = `${healthPercent}%`;
+                    }
+                }
+
+                // Apply knockback to enemy in the direction of the arrow
+                const direction = player.direction; // Use the player's direction
+
+                // Calculate knockback strength based on arrow power
+                const knockbackMultiplier = arrow.knockback / 50; // Normalize to expected scale
+
+                // Apply fixed knockback based on arrow power
+                applyKnockback(enemy, direction, knockbackMultiplier, arrow.knockback/2);
+
+                // If arrow can penetrate, continue flying
+                if (arrow.canPenetrate) {
+                    // Add visual effect to show penetration
+                    arrow.element.style.filter = "brightness(130%) contrast(150%)";
+
+                    // Skip to next enemy (continue flying)
+                    continue;
+                }
+                // Otherwise remove the arrow
+                else {
+                    // Remove arrow element
+                    arrow.element.remove();
+
+                    // Remove from array
+                    arrows.splice(i, 1);
+                    break;
+                }
+            }
+        }
+
+        // Check for collision with rocks
+        for (let j = 0; j < rocks.length; j++) {
+            const rock = rocks[j];
+
+            // Check for collision
+            if (
+                arrow.x < rock.x + rock.width &&
+                arrow.x + arrow.width > rock.x &&
+                arrow.y < rock.y + rock.height &&
+                arrow.y + arrow.height > rock.y
+            ) {
+                // Apply damage to rock (half damage)
+                damageRock(rock, Math.floor(arrow.damage / 2), true);
+
+                // If arrow can penetrate, continue flying
+                if (arrow.canPenetrate) {
+                    // Add visual effect to show penetration
+                    arrow.element.style.filter = "brightness(130%) contrast(150%)";
+
+                    // Skip to next enemy (continue flying)
+                    continue;
+                }
+                // Otherwise remove the arrow
+                else {
+                    // Remove arrow element
+                    arrow.element.remove();
+
+                    // Remove from array
+                    arrows.splice(i, 1);
+                    break;
+                }
+            }
+        }
+    }
+}
 
 // Initialize game - completely simplified
 function initGame() {
@@ -273,7 +779,25 @@ function initGame() {
     document.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowDown' }));
     document.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowLeft' }));
     document.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight' }));
-    
+
+    // Reset bow and arrow properties
+    player.arrows = 0; // Start with no arrows
+    player.bowDrawStartTime = 0;
+    player.bowDrawnLevel = 0;
+    player.lastVKeyTime = 0;
+
+    // Reset bow UI elements
+    resetBow();
+
+    // Clear all arrows from screen
+    arrows.forEach(arrow => {
+        if (arrow.element) arrow.element.remove();
+    });
+    arrows = [];
+
+    // Update arrow display
+    updateArrowDisplay();
+
     // Reset cheat mode counter
     cheatClickCount = 0;
     
@@ -405,21 +929,30 @@ function movePlayer() {
     // Calculate potential new position
     let newX = player.x;
     let newY = player.y;
-    
+
+    // Calculate actual speed - reduced based on bow charge level
+    let speedMultiplier = 1.0; // Default full speed
+    if (player.isDrawingBow) {
+        // Speed decreases as charge level increases
+        const speedReductions = [0.7, 0.6, 0.5, 0.4, 0.3]; // 70%, 60%, 50%, 40%, 30%
+        speedMultiplier = speedReductions[player.bowDrawnLevel];
+    }
+    const actualSpeed = PLAYER_SPEED * speedMultiplier;
+
     if (keysPressed['ArrowUp'] && player.y > 0) {
-        newY -= PLAYER_SPEED;
+        newY -= actualSpeed;
         player.lastMoveDirection = 'up';
     }
     if (keysPressed['ArrowDown'] && player.y < getEffectiveGameHeight() - player.height) {
-        newY += PLAYER_SPEED;
+        newY += actualSpeed;
         player.lastMoveDirection = 'down';
     }
     if (keysPressed['ArrowLeft'] && player.x > 0) {
-        newX -= PLAYER_SPEED;
+        newX -= actualSpeed;
         player.lastMoveDirection = 'left';
     }
     if (keysPressed['ArrowRight'] && player.x < GAME_WIDTH - player.width) {
-        newX += PLAYER_SPEED;
+        newX += actualSpeed;
         player.lastMoveDirection = 'right';
     }
     
@@ -666,6 +1199,10 @@ function spawnEnemy() {
     
     // If we couldn't find a valid position after max attempts, just use the last generated position
     
+    // Select a random movement pattern for this enemy type
+    const availablePatterns = ENEMY_MOVEMENT_PATTERNS[enemyType.color];
+    const randomPattern = availablePatterns[Math.floor(Math.random() * availablePatterns.length)];
+
     // Create enemy data with type-specific attributes
     const enemy = {
         id: 'enemy_' + (++enemyIdCounter), // Assign a unique ID to each enemy
@@ -678,13 +1215,16 @@ function spawnEnemy() {
         exp: Math.floor(baseExp * enemyType.expMultiplier),
         speed: ENEMY_SPEED * enemyType.speedMultiplier,
         type: enemyType,
+        movementPattern: randomPattern.id, // Assign the movement pattern
         isKnockedBack: false,
         isHit: false, // Flag to track if enemy was already hit in this attack frame
         knockbackDuration: 300, // Duration of knockback in milliseconds
         knockbackDistance: 60 * enemyType.knockbackMultiplier, // Base distance adjusted by enemy type
-        knockbackResistance: enemyType.knockbackResistance // Resistance to knockback (0-1)
+        knockbackResistance: enemyType.knockbackResistance, // Resistance to knockback (0-1)
+        randomDirection: null, // For random movement pattern
+        lastDirectionChange: 0 // For random movement pattern
     };
-    
+
     // Create enemy element
     const enemyElement = document.createElement('div');
     enemyElement.className = 'enemy';
@@ -692,44 +1232,245 @@ function spawnEnemy() {
     enemyElement.style.top = enemy.y + 'px';
     enemyElement.style.backgroundColor = enemyType.color;
     enemyElement.dataset.enemyType = enemyType.color;
-    
+    enemyElement.dataset.movementPattern = randomPattern.id;
+    enemyElement.title = `${enemyType.color} - ${randomPattern.name}: ${randomPattern.description}`;
+
     // Add health indicator (visible for all types)
     const healthBar = document.createElement('div');
     healthBar.className = 'enemy-health';
     healthBar.style.width = '100%';
     enemyElement.appendChild(healthBar);
-    
+
+    // Set initial pattern switch time
+    enemy.lastPatternSwitch = Date.now();
+    enemy.patternSwitchInterval = 5000 + Math.random() * 5000; // 5-10 seconds random interval
+
     gameScreen.appendChild(enemyElement);
-    
+
     enemy.element = enemyElement;
     enemies.push(enemy);
 }
 
 // Move enemies toward player and handle enemy collision avoidance
 function moveEnemies() {
-    // First pass: Calculate new positions based on player tracking
+    // First pass: Calculate new positions based on movement patterns
     const newPositions = [];
-    
+    const now = Date.now();
+
     enemies.forEach(enemy => {
+        // Check if it's time to switch patterns
+        if (now - enemy.lastPatternSwitch > enemy.patternSwitchInterval) {
+            // Get available patterns for this enemy type
+            const availablePatterns = ENEMY_MOVEMENT_PATTERNS[enemy.type.color];
+
+            // Select a new random pattern (different from current if possible)
+            let newPattern;
+            if (availablePatterns.length > 1) {
+                // Filter out current pattern to avoid selecting the same one
+                const otherPatterns = availablePatterns.filter(pattern => pattern.id !== enemy.movementPattern);
+                // If there are other patterns available, choose from them, otherwise choose from all
+                if (otherPatterns.length > 0) {
+                    newPattern = otherPatterns[Math.floor(Math.random() * otherPatterns.length)];
+                } else {
+                    newPattern = availablePatterns[Math.floor(Math.random() * availablePatterns.length)];
+                }
+            } else {
+                // If only one pattern is available, use it
+                newPattern = availablePatterns[0];
+            }
+
+            // Assign new pattern
+            enemy.movementPattern = newPattern.id;
+
+            // Update visual indication
+            enemy.element.dataset.movementPattern = newPattern.id;
+            enemy.element.title = `${enemy.type.color} - ${newPattern.name}: ${newPattern.description}`;
+
+            // Set next switch time (5-10 seconds)
+            enemy.lastPatternSwitch = now;
+            enemy.patternSwitchInterval = 5000 + Math.random() * 5000;
+        }
+
         // Only calculate new position if not being knocked back
         if (!enemy.isKnockedBack) {
             let newX = enemy.x;
             let newY = enemy.y;
-            
-            // Simple AI to move toward player
-            if (enemy.x < player.x) newX += enemy.speed;
-            if (enemy.x > player.x) newX -= enemy.speed;
-            if (enemy.y < player.y) newY += enemy.speed;
-            if (enemy.y > player.y) newY -= enemy.speed;
-            
+            let moveVector = { x: 0, y: 0 };
+
+            // Determine movement based on pattern
+            switch (enemy.movementPattern) {
+                // Blue enemy patterns
+                case MOVEMENT_PATTERNS.BLUE_DIRECT.id:
+                    // Move directly toward player (current basic behavior)
+                    if (enemy.x < player.x) moveVector.x = enemy.speed;
+                    if (enemy.x > player.x) moveVector.x = -enemy.speed;
+                    if (enemy.y < player.y) moveVector.y = enemy.speed;
+                    if (enemy.y > player.y) moveVector.y = -enemy.speed;
+                    break;
+
+                case MOVEMENT_PATTERNS.BLUE_STATIONARY.id:
+                    // Stay in place (no movement)
+                    moveVector = { x: 0, y: 0 };
+                    break;
+
+                case MOVEMENT_PATTERNS.BLUE_FLEE.id:
+                    // Flee from player
+                    const playerCenterX = player.x + player.width / 2;
+                    const playerCenterY = player.y + player.height / 2;
+                    const enemyCenterX = enemy.x + enemy.width / 2;
+                    const enemyCenterY = enemy.y + enemy.height / 2;
+
+                    moveVector = calculateMoveAwayVector(
+                        enemyCenterX, enemyCenterY,
+                        playerCenterX, playerCenterY,
+                        enemy.speed
+                    );
+                    break;
+
+                // Red enemy patterns
+                case MOVEMENT_PATTERNS.RED_DIRECT.id:
+                    // Move directly toward player (current basic behavior)
+                    if (enemy.x < player.x) moveVector.x = enemy.speed;
+                    if (enemy.x > player.x) moveVector.x = -enemy.speed;
+                    if (enemy.y < player.y) moveVector.y = enemy.speed;
+                    if (enemy.y > player.y) moveVector.y = -enemy.speed;
+                    break;
+
+                case MOVEMENT_PATTERNS.RED_ROCK_SEEKER.id:
+                    // Move toward nearest rock
+                    const nearestRock = findNearestRock(enemy.x, enemy.y);
+                    if (nearestRock.rock) {
+                        const rockCenterX = nearestRock.rock.x + nearestRock.rock.width / 2;
+                        const rockCenterY = nearestRock.rock.y + nearestRock.rock.height / 2;
+
+                        if (enemy.x < rockCenterX) moveVector.x = enemy.speed;
+                        if (enemy.x > rockCenterX) moveVector.x = -enemy.speed;
+                        if (enemy.y < rockCenterY) moveVector.y = enemy.speed;
+                        if (enemy.y > rockCenterY) moveVector.y = -enemy.speed;
+                    } else {
+                        // If no rocks are found, move toward player
+                        if (enemy.x < player.x) moveVector.x = enemy.speed;
+                        if (enemy.x > player.x) moveVector.x = -enemy.speed;
+                        if (enemy.y < player.y) moveVector.y = enemy.speed;
+                        if (enemy.y > player.y) moveVector.y = -enemy.speed;
+                    }
+                    break;
+
+                case MOVEMENT_PATTERNS.RED_BLACK_SEEKER.id:
+                    // Move toward nearest black enemy
+                    const nearestBlack = findNearestEnemyOfType(enemy.x, enemy.y, 'black', enemy.id);
+                    if (nearestBlack.enemy) {
+                        const blackCenterX = nearestBlack.enemy.x + nearestBlack.enemy.width / 2;
+                        const blackCenterY = nearestBlack.enemy.y + nearestBlack.enemy.height / 2;
+
+                        if (enemy.x < blackCenterX) moveVector.x = enemy.speed;
+                        if (enemy.x > blackCenterX) moveVector.x = -enemy.speed;
+                        if (enemy.y < blackCenterY) moveVector.y = enemy.speed;
+                        if (enemy.y > blackCenterY) moveVector.y = -enemy.speed;
+                    } else {
+                        // If no black enemies are found, move toward player
+                        if (enemy.x < player.x) moveVector.x = enemy.speed;
+                        if (enemy.x > player.x) moveVector.x = -enemy.speed;
+                        if (enemy.y < player.y) moveVector.y = enemy.speed;
+                        if (enemy.y > player.y) moveVector.y = -enemy.speed;
+                    }
+                    break;
+
+                // Black enemy patterns
+                case MOVEMENT_PATTERNS.BLACK_SLOW.id:
+                    // Slowly approach player (half speed)
+                    if (enemy.x < player.x) moveVector.x = enemy.speed * 0.5;
+                    if (enemy.x > player.x) moveVector.x = -enemy.speed * 0.5;
+                    if (enemy.y < player.y) moveVector.y = enemy.speed * 0.5;
+                    if (enemy.y > player.y) moveVector.y = -enemy.speed * 0.5;
+                    break;
+
+                case MOVEMENT_PATTERNS.BLACK_WHITE_SEEKER.id:
+                    // Move toward nearest white enemy
+                    const nearestWhite = findNearestEnemyOfType(enemy.x, enemy.y, 'white', enemy.id);
+                    if (nearestWhite.enemy) {
+                        const whiteCenterX = nearestWhite.enemy.x + nearestWhite.enemy.width / 2;
+                        const whiteCenterY = nearestWhite.enemy.y + nearestWhite.enemy.height / 2;
+
+                        if (enemy.x < whiteCenterX) moveVector.x = enemy.speed;
+                        if (enemy.x > whiteCenterX) moveVector.x = -enemy.speed;
+                        if (enemy.y < whiteCenterY) moveVector.y = enemy.speed;
+                        if (enemy.y > whiteCenterY) moveVector.y = -enemy.speed;
+                    } else {
+                        // If no white enemies are found, move toward player
+                        if (enemy.x < player.x) moveVector.x = enemy.speed;
+                        if (enemy.x > player.x) moveVector.x = -enemy.speed;
+                        if (enemy.y < player.y) moveVector.y = enemy.speed;
+                        if (enemy.y > player.y) moveVector.y = -enemy.speed;
+                    }
+                    break;
+
+                case MOVEMENT_PATTERNS.BLACK_BLUE_SEEKER.id:
+                    // Move toward nearest blue enemy
+                    const nearestBlue = findNearestEnemyOfType(enemy.x, enemy.y, 'blue', enemy.id);
+                    if (nearestBlue.enemy) {
+                        const blueCenterX = nearestBlue.enemy.x + nearestBlue.enemy.width / 2;
+                        const blueCenterY = nearestBlue.enemy.y + nearestBlue.enemy.height / 2;
+
+                        if (enemy.x < blueCenterX) moveVector.x = enemy.speed;
+                        if (enemy.x > blueCenterX) moveVector.x = -enemy.speed;
+                        if (enemy.y < blueCenterY) moveVector.y = enemy.speed;
+                        if (enemy.y > blueCenterY) moveVector.y = -enemy.speed;
+                    } else {
+                        // If no blue enemies are found, move toward player
+                        if (enemy.x < player.x) moveVector.x = enemy.speed;
+                        if (enemy.x > player.x) moveVector.x = -enemy.speed;
+                        if (enemy.y < player.y) moveVector.y = enemy.speed;
+                        if (enemy.y > player.y) moveVector.y = -enemy.speed;
+                    }
+                    break;
+
+                case MOVEMENT_PATTERNS.BLACK_STATIONARY.id:
+                    // Stay in place (no movement)
+                    moveVector = { x: 0, y: 0 };
+                    break;
+
+                // White enemy patterns
+                case MOVEMENT_PATTERNS.WHITE_STATIONARY.id:
+                    // Stay in place (no movement)
+                    moveVector = { x: 0, y: 0 };
+                    break;
+
+                case MOVEMENT_PATTERNS.WHITE_RANDOM.id:
+                    // Move in random directions
+                    moveVector = calculateRandomMove(enemy, enemy.speed);
+                    break;
+
+                case MOVEMENT_PATTERNS.WHITE_ORTHOGONAL.id:
+                    // Approach player orthogonally (horizontal or vertical only)
+                    moveVector = calculateOrthogonalMove(
+                        enemy.x, enemy.y,
+                        player.x, player.y,
+                        enemy.speed
+                    );
+                    break;
+
+                default:
+                    // Default: Move directly toward player
+                    if (enemy.x < player.x) moveVector.x = enemy.speed;
+                    if (enemy.x > player.x) moveVector.x = -enemy.speed;
+                    if (enemy.y < player.y) moveVector.y = enemy.speed;
+                    if (enemy.y > player.y) moveVector.y = -enemy.speed;
+                    break;
+            }
+
+            // Apply movement vector
+            newX += moveVector.x;
+            newY += moveVector.y;
+
             // Keep within game bounds
             newX = Math.max(0, Math.min(GAME_WIDTH - enemy.width, newX));
             newY = Math.max(0, Math.min(getEffectiveGameHeight() - enemy.height, newY));
-            
+
             // Check for rock collisions
             let canMoveX = true;
             let canMoveY = true;
-            
+
             // Check rock collisions for X and Y movement separately
             for (const rock of rocks) {
                 // Check X movement collision
@@ -741,7 +1482,7 @@ function moveEnemies() {
                 ) {
                     canMoveX = false;
                 }
-                
+
                 // Check Y movement collision
                 if (
                     enemy.x < rock.x + rock.width &&
@@ -752,7 +1493,7 @@ function moveEnemies() {
                     canMoveY = false;
                 }
             }
-            
+
             // Apply movement if possible
             if (!canMoveX) {
                 newX = enemy.x;
@@ -760,7 +1501,7 @@ function moveEnemies() {
             if (!canMoveY) {
                 newY = enemy.y;
             }
-            
+
             newPositions.push({ enemy, newX, newY });
         } else {
             // Knocked back enemies don't move in this phase
@@ -881,7 +1622,7 @@ function getSwordHitbox() {
     }
     
     // Add a thickness to the sword hitbox for better collision detection
-    const swordThickness = 10;
+    const swordThickness = 13; // Increased by 30% (10 * 1.3 = 13)
     
     // Create a consistent hitbox size regardless of direction
     let hitboxX, hitboxY, hitboxWidth, hitboxHeight;
@@ -1170,10 +1911,16 @@ function checkCollisions() {
             
             // Apply damage
             player.hp -= damage;
-            
+
             // Show damage text above player
             const playerCenterX = player.x + player.width / 2;
             const playerCenterY = player.y;
+
+            // Only cancel bow drawing when hit from behind
+            if (player.isDrawingBow && isBackstab) {
+                cancelBowDrawing();
+                showDamageText(playerCenterX, playerCenterY - 40, "BOW CANCELED - BACKSTABBED!", false);
+            }
             showDamageText(playerCenterX, playerCenterY, `-${damage}`, damageMultiplier > 1);
             
             // Show backstab or moving damage message if applicable
@@ -1763,6 +2510,12 @@ function applyBonus(bonusType) {
         hideBonusSelection();
         return;
     }
+
+    // Prevent selecting arrows bonus if it would exceed max arrows
+    if (bonusType === 'arrows' && player.arrows + 10 > player.maxArrows) {
+        showDamageText(player.x + player.width/2, player.y - 20, "ARROWS AT MAX CAPACITY!", false);
+        return;
+    }
     
     // Show bonus effect at player position
     let bonusText = '';
@@ -1798,6 +2551,12 @@ function applyBonus(bonusType) {
             player.knockbackResistance += 0.05; // Reduced from 0.1 to 0.05 (5% per level)
             player.knockbackStrengthMultiplier += 0.2; // Reduced from 0.5 to 0.2 (20% per level)
             bonusText = 'RESIST/KNOCK+!';
+            break;
+        case 'arrows':
+            // Charge 10 arrows
+            player.arrows = Math.min(player.maxArrows, player.arrows + 10);
+            bonusText = 'ARROWS +10!';
+            updateArrowDisplay();
             break;
     }
     
@@ -1838,6 +2597,11 @@ function levelUp() {
     
     // Add a gem for the level up
     addGem();
+
+    // Add 2 arrows for leveling up
+    player.arrows = Math.min(player.maxArrows, player.arrows + 2);
+    showDamageText(playerCenterX, healTextY - 20, "+2 ARROWS", true);
+    updateArrowDisplay();
     
     // Show level up text above player
     // Offset position slightly to prevent overlap
@@ -2077,9 +2841,9 @@ function attack() {
                 swordElement.style.left = `${player.x + player.width}px`;
                 swordElement.style.top = `${playerCenterY - 3}px`;
                 swordElement.style.transformOrigin = 'left center';
-                // Use horizontal sword as is
-                swordElement.style.width = '30px';
-                swordElement.style.height = '6px';
+                // Use horizontal sword as is (increased by 30%)
+                swordElement.style.width = '39px';
+                swordElement.style.height = '8px';
                 // Remove up/down classes
                 swordElement.classList.remove('sword-up', 'sword-down');
                 break;
@@ -2089,9 +2853,9 @@ function attack() {
                 swordElement.style.left = `${player.x}px`;
                 swordElement.style.top = `${playerCenterY - 3}px`;
                 swordElement.style.transformOrigin = 'left center';
-                // Use horizontal sword as is
-                swordElement.style.width = '30px';
-                swordElement.style.height = '6px';
+                // Use horizontal sword as is (increased by 30%)
+                swordElement.style.width = '39px';
+                swordElement.style.height = '8px';
                 // Remove up/down classes
                 swordElement.classList.remove('sword-up', 'sword-down');
                 break;
@@ -2102,10 +2866,10 @@ function attack() {
                 swordElement.style.left = `${playerCenterX - 3}px`;
                 swordElement.style.top = `${player.y - 30}px`;
                 swordElement.style.transformOrigin = 'center bottom';
-                // Swap width and height to make it vertical
-                swordElement.style.width = '6px';
-                swordElement.style.height = '30px';
-                
+                // Swap width and height to make it vertical (increased by 30%)
+                swordElement.style.width = '8px';
+                swordElement.style.height = '39px';
+
                 // Apply upward-facing class
                 swordElement.classList.remove('sword-down');
                 swordElement.classList.add('sword-up');
@@ -2117,10 +2881,10 @@ function attack() {
                 swordElement.style.left = `${playerCenterX - 3}px`;
                 swordElement.style.top = `${player.y + player.height}px`;
                 swordElement.style.transformOrigin = 'center top';
-                // Swap width and height to make it vertical
-                swordElement.style.width = '6px';
-                swordElement.style.height = '30px';
-                
+                // Swap width and height to make it vertical (increased by 30%)
+                swordElement.style.width = '8px';
+                swordElement.style.height = '39px';
+
                 // Apply downward-facing class
                 swordElement.classList.remove('sword-up');
                 swordElement.classList.add('sword-down');
@@ -2251,20 +3015,135 @@ function processHealEffects() {
     updateStatusBar();
 }
 
+// Helper functions for enemy movement patterns
+
+// Function to find the nearest rock
+function findNearestRock(enemyX, enemyY) {
+    let nearestRock = null;
+    let minDistance = Infinity;
+
+    rocks.forEach(rock => {
+        const rockCenterX = rock.x + rock.width / 2;
+        const rockCenterY = rock.y + rock.height / 2;
+        const enemyCenterX = enemyX + 15; // Enemy center (half of width 30)
+        const enemyCenterY = enemyY + 15; // Enemy center (half of height 30)
+
+        const distance = Math.sqrt(
+            Math.pow(rockCenterX - enemyCenterX, 2) +
+            Math.pow(rockCenterY - enemyCenterY, 2)
+        );
+
+        if (distance < minDistance) {
+            minDistance = distance;
+            nearestRock = rock;
+        }
+    });
+
+    return { rock: nearestRock, distance: minDistance };
+}
+
+// Function to find the nearest enemy of a specific type
+function findNearestEnemyOfType(enemyX, enemyY, targetType, selfId) {
+    let nearestEnemy = null;
+    let minDistance = Infinity;
+
+    enemies.forEach(otherEnemy => {
+        // Exclude self
+        if (otherEnemy.id === selfId) return;
+
+        // Only target enemies of the specified type
+        if (otherEnemy.type.color !== targetType) return;
+
+        const otherEnemyCenterX = otherEnemy.x + otherEnemy.width / 2;
+        const otherEnemyCenterY = otherEnemy.y + otherEnemy.height / 2;
+        const enemyCenterX = enemyX + 15;
+        const enemyCenterY = enemyY + 15;
+
+        const distance = Math.sqrt(
+            Math.pow(otherEnemyCenterX - enemyCenterX, 2) +
+            Math.pow(otherEnemyCenterY - enemyCenterY, 2)
+        );
+
+        if (distance < minDistance) {
+            minDistance = distance;
+            nearestEnemy = otherEnemy;
+        }
+    });
+
+    return { enemy: nearestEnemy, distance: minDistance };
+}
+
+// Calculate vector to move away from target
+function calculateMoveAwayVector(fromX, fromY, targetX, targetY, speed) {
+    const dx = fromX - targetX;
+    const dy = fromY - targetY;
+    const length = Math.sqrt(dx * dx + dy * dy) || 1;
+
+    return {
+        x: (dx / length) * speed,
+        y: (dy / length) * speed
+    };
+}
+
+// Calculate orthogonal movement (horizontal or vertical only)
+function calculateOrthogonalMove(fromX, fromY, targetX, targetY, speed) {
+    // Compare distances on x and y axes
+    const dx = targetX - fromX;
+    const dy = targetY - fromY;
+
+    // Initialize movement vector
+    let moveX = 0;
+    let moveY = 0;
+
+    // Alternate between horizontal/vertical movement
+    // Based on position instead of timer
+    const shouldMoveHorizontally = (Math.floor(fromX / 50) + Math.floor(fromY / 50)) % 2 === 0;
+
+    if (shouldMoveHorizontally) {
+        // Horizontal movement only
+        moveX = dx > 0 ? speed : (dx < 0 ? -speed : 0);
+    } else {
+        // Vertical movement only
+        moveY = dy > 0 ? speed : (dy < 0 ? -speed : 0);
+    }
+
+    return { x: moveX, y: moveY };
+}
+
+// Calculate random movement
+function calculateRandomMove(enemy, speed) {
+    // Update random direction every 6 seconds
+    if (!enemy.randomDirection || Date.now() - (enemy.lastDirectionChange || 0) > 6000) {
+        const angle = Math.random() * Math.PI * 2; // Random angle
+        enemy.randomDirection = {
+            x: Math.cos(angle),
+            y: Math.sin(angle)
+        };
+        enemy.lastDirectionChange = Date.now();
+    }
+
+    return {
+        x: enemy.randomDirection.x * speed,
+        y: enemy.randomDirection.y * speed
+    };
+}
+
 // Game loop - simplified
 function gameLoop() {
     // Do not process if the game has ended
     if (!gameActive) {
         return;
     }
-    
+
     // Game processing
     movePlayer();
     moveEnemies();
+    moveArrows();
     checkCollisions();
     spawnEnemy();
     processHealEffects();
-    
+    updateBowDrawing();
+
     // Request next frame
     gameLoopId = requestAnimationFrame(gameLoop);
 }
@@ -2301,22 +3180,38 @@ let touchThreshold = 30; // Minimum distance to consider as a swipe
 // Event listeners
 document.addEventListener('keydown', (e) => {
     keysPressed[e.key] = true;
-    
+
     // Attack when spacebar is pressed
     if (e.key === ' ' || e.code === 'Space') {
         attack();
     }
-    
+
     // Heal when H key is pressed
     if (e.key === 'h' || e.key === 'H') {
         heal();
     }
-    
+
     // Use gem when G key is pressed
     if (e.key === 'g' || e.key === 'G') {
         useGem();
     }
-    
+
+    // Bow and arrow control with V key (single press)
+    if (e.key === 'v' || e.key === 'V') {
+        // If already drawing bow, shoot arrow
+        if (player.isDrawingBow) {
+            shootArrow();
+        }
+        // If not drawing and has arrows, start drawing
+        else if (player.arrows > 0) {
+            startDrawingBow();
+        }
+        // No arrows available
+        else {
+            showDamageText(player.x + player.width/2, player.y - 20, "NO ARROWS!", false);
+        }
+    }
+
     // Restart game when R key is pressed
     if (e.key === 'r' || e.key === 'R') {
         e.preventDefault(); // Prevent the default action
@@ -2338,6 +3233,8 @@ document.addEventListener('keydown', (e) => {
             applyBonus('attack');
         } else if (e.key === '4') {
             applyBonus('knockback');
+        } else if (e.key === '5') {
+            applyBonus('arrows');
         }
     }
 });
@@ -2458,6 +3355,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    const mobileBowBtn = document.getElementById('mobile-bow-btn');
+    if (mobileBowBtn) {
+        mobileBowBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handleBowButton();
+        });
+    }
+
     const mobileGemBtn = document.getElementById('mobile-gem-btn');
     if (mobileGemBtn) {
         mobileGemBtn.addEventListener('touchstart', (e) => {
@@ -2470,17 +3375,83 @@ document.addEventListener('DOMContentLoaded', function() {
 // Game control buttons
 attackBtn.addEventListener('click', attack);
 healBtn.addEventListener('click', heal);
+bowBtn.addEventListener('click', handleBowButton);
 // Simply call initialization directly
 restartBtn.addEventListener('click', initGame);
+
+// Handle bow button click
+function handleBowButton() {
+    // If already drawing bow, shoot arrow
+    if (player.isDrawingBow) {
+        shootArrow();
+    }
+    // If not drawing and has arrows, start drawing
+    else if (player.arrows > 0) {
+        startDrawingBow();
+    }
+    // No arrows available
+    else {
+        showDamageText(player.x + player.width/2, player.y - 20, "NO ARROWS!", false);
+    }
+}
 
 // Bonus buttons
 bonusHpBtn.addEventListener('click', () => applyBonus('hp'));
 bonusHealBtn.addEventListener('click', () => applyBonus('heal'));
 bonusAttackBtn.addEventListener('click', () => applyBonus('attack'));
 bonusKnockbackBtn.addEventListener('click', () => applyBonus('knockback'));
+bonusArrowsBtn.addEventListener('click', () => applyBonus('arrows'));
 
 // Track whether cheat mode has been used
 let cheatModeUsed = false;
+
+// Arrow UI container
+const arrowsContainer = document.createElement('div');
+arrowsContainer.id = 'arrows-container';
+arrowsContainer.style.position = 'absolute';
+arrowsContainer.style.top = '5px';
+arrowsContainer.style.right = '5px';
+arrowsContainer.style.display = 'flex';
+arrowsContainer.style.flexDirection = 'column';
+arrowsContainer.style.alignItems = 'flex-end';
+gameScreen.appendChild(arrowsContainer);
+
+// Bow charge indicator
+const bowChargeIndicator = document.createElement('div');
+bowChargeIndicator.id = 'bow-charge-indicator';
+bowChargeIndicator.style.position = 'absolute';
+bowChargeIndicator.style.display = 'none';
+bowChargeIndicator.style.width = '0%';
+bowChargeIndicator.style.height = '4px';
+bowChargeIndicator.style.bottom = '-6px';
+bowChargeIndicator.style.left = '0';
+bowChargeIndicator.style.backgroundColor = '#ffaa00';
+bowChargeIndicator.style.borderRadius = '2px';
+bowChargeIndicator.style.transition = 'width 0.1s';
+playerElement.appendChild(bowChargeIndicator);
+
+// Bow element
+const bowElement = document.createElement('div');
+bowElement.id = 'bow';
+bowElement.style.position = 'absolute';
+bowElement.style.width = '20px';
+bowElement.style.height = '40px';
+bowElement.style.borderRadius = '10px 0 0 10px';
+bowElement.style.border = '2px solid #8B4513';
+bowElement.style.borderRight = 'none';
+bowElement.style.backgroundColor = 'transparent';
+bowElement.style.display = 'none';
+bowElement.style.zIndex = '99';
+gameScreen.appendChild(bowElement);
+
+// Arrow drawing power levels with time thresholds
+const BOW_POWER_LEVELS = [
+    { threshold: 0, damageMultiplier: 0.5, speed: 2, knockback: 10, color: '#aaaaaa' }, // 0-1 seconds
+    { threshold: 1000, damageMultiplier: 1.2, speed: 5, knockback: 20, color: '#ffaa00' }, // 1-3 seconds
+    { threshold: 3000, damageMultiplier: 2.0, speed: 7, knockback: 30, color: '#ff5500' }, // 3-5 seconds
+    { threshold: 5000, damageMultiplier: 4.0, speed: 10, knockback: 50, color: '#ff0000' }, // 5-10 seconds
+    { threshold: 10000, damageMultiplier: 8.0, speed: 15, knockback: 100, color: '#ff00ff' } // 10+ seconds
+];
 
 // Cheat mode function
 function activateCheatMode() {

@@ -176,8 +176,8 @@
         }
         #sword {
             position: absolute;
-            width: 30px;
-            height: 6px;
+            width: 39px; /* Increased by 30% from 30px */
+            height: 8px; /* Increased by ~30% from 6px */
             background-color: #c0c0c0;
             transform-origin: left center; /* Default, will be dynamically set by JS */
             transform: rotate(0deg);
@@ -517,6 +517,61 @@
             0% { box-shadow: 0 0 5px cyan; }
             100% { box-shadow: 0 0 10px cyan, 0 0 15px white; }
         }
+
+        /* Enemy movement pattern indicators hidden as requested */
+
+        /* Visual styles for specific movement patterns */
+        [data-movement-pattern^="blue_direct"] {
+            border: 2px solid yellow;
+        }
+
+        [data-movement-pattern^="blue_stationary"] {
+            border: 2px dashed white;
+        }
+
+        [data-movement-pattern^="blue_flee"] {
+            border: 2px dotted cyan;
+        }
+
+        [data-movement-pattern^="red_direct"] {
+            border: 2px solid yellow;
+        }
+
+        [data-movement-pattern^="red_rock_seeker"] {
+            border: 2px dashed brown;
+        }
+
+        [data-movement-pattern^="red_black_seeker"] {
+            border: 2px dotted #333;
+        }
+
+        [data-movement-pattern^="black_slow"] {
+            border: 2px solid orange;
+        }
+
+        [data-movement-pattern^="black_white_seeker"] {
+            border: 2px dashed white;
+        }
+
+        [data-movement-pattern^="black_blue_seeker"] {
+            border: 2px dotted blue;
+        }
+
+        [data-movement-pattern^="black_stationary"] {
+            border: 2px double white;
+        }
+
+        [data-movement-pattern^="white_stationary"] {
+            border: 2px double black;
+        }
+
+        [data-movement-pattern^="white_random"] {
+            border: 2px dashed green;
+        }
+
+        [data-movement-pattern^="white_orthogonal"] {
+            border: 2px solid purple;
+        }
         .game-over-text {
             position: absolute;
             top: 40%;
@@ -745,6 +800,7 @@
                 <button id="bonus-heal" class="bonus-button">HEAL+ [2]</button>
                 <button id="bonus-attack" class="bonus-button">ATK+5 [3]</button>
                 <button id="bonus-knockback" class="bonus-button">KNOCK+ [4]</button>
+                <button id="bonus-arrows" class="bonus-button">ARROWS+5 [5]</button>
             </div>
         </div>
         <div id="game-screen">
@@ -759,18 +815,21 @@
         <div id="controls">
             <button id="attack-btn">Attack [SPACE]</button>
             <button id="heal-btn">Heal [H]</button>
+            <button id="bow-btn">Bow [V]</button>
             <button id="restart-btn">Restart Game [R]</button>
         </div>
         <div id="keyboard-help">
             <p>Use <strong>Arrow Keys</strong> to move. Press <strong>Space</strong> to attack. Press <strong>H</strong> to heal. Press <strong>G</strong> to use gems.</p>
-            <p><small>When selecting bonuses, press <strong>1-4</strong> keys to quickly choose. Defeat rocks with attacks to get extra gems!</small></p>
-            <p><small>Be careful! You take <strong>double damage</strong> from backstab attacks when hit from behind. Watch your positioning!</small></p>
+            <p>Press <strong>V</strong> or the <strong>Bow button</strong> to draw bow, then press again to shoot. <em>You can move while drawing, but your speed decreases as charge level increases (70% → 30%). Perfect shots penetrate enemies!</em></p>
+            <p><small>When selecting bonuses, press <strong>1-5</strong> keys to quickly choose. Press 5 to use a gem for +10 arrows. Perfect shots penetrate enemies!</small></p>
+            <p><small>Be careful! You take <strong>double damage</strong> from backstab attacks when hit from behind, and your bow drawing will be canceled. Watch your positioning!</small></p>
             <p><small>Defeat enemies to gain experience and level up! Different enemies appear at higher levels and more rocks appear every 5 levels.</small></p>
         </div>
         <div id="mobile-controls">
             <p>Touch controls: <strong>Swipe</strong> to move. <strong>Tap</strong> to attack in that direction.</p>
             <div style="margin-top: 10px;">
                 <button id="mobile-heal-btn" style="background-color: #3498db; margin-right: 10px;">Heal</button>
+                <button id="mobile-bow-btn" style="background-color: #27ae60; margin-right: 10px;">Bow</button>
                 <button id="mobile-gem-btn" style="background-color: #9b59b6;">Use Gem</button>
             </div>
         </div>
