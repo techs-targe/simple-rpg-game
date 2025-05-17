@@ -29,6 +29,10 @@ Thank you for considering contributing to the Simple RPG Game! This document out
 - Bug fixes
 - Performance improvements
 - New features or enhancements
+  - Additional weapons or combat mechanics
+  - New enemy types or behaviors
+  - More progression systems
+  - Enhanced UI features
 - Documentation improvements
 - Accessibility improvements
 - Browser compatibility fixes
